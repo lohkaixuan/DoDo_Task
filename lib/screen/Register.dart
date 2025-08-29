@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class RegisterPage extends StatelessWidget {
   const RegisterPage({super.key});
@@ -52,6 +53,13 @@ class RegisterPage extends StatelessWidget {
                   // Handle registration logic here
                 },
                 child: const Text('Register'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // Handle registration logic here
+                  Get.back();
+                },
+                child: const Text('Back'),
               ),
             ],
           ),

@@ -10,9 +10,7 @@ class PetOverlayLauncher extends StatelessWidget {
       icon: const Icon(Icons.pets),
       tooltip: 'Open Pet',
       onPressed: () {
-        // Navigator.of(context).push(
-        //   MaterialPageRoute(builder: (_) => const PetScreen()),
-        // );
+        // Get.toNamed('/pet');
       },
     );
   }

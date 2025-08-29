@@ -1,31 +1,8 @@
 import 'package:dodotask/main.dart';
-import 'package:dodotask/screen/Register.dart';
+import 'package:dodotask/screen/register.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Text(
-              'Hello, Please sign in to continue!',
-              style: TextStyle(fontSize: 24),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -77,10 +54,7 @@ class LoginPage extends StatelessWidget {
               GestureDetector(
                 child: const Text("Sign Up"),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => RegisterPage()),
-                  );
+                Get.toNamed('/register');
                 },
               )
             ],

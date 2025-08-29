@@ -39,8 +39,8 @@ class MyApp extends StatelessWidget {
           return GetMaterialApp(
             title: 'DODO Task',
             debugShowCheckedModeBanner: false,
-            //initialRoute: AppPages.initial,   // <- use your route constants
-            //getPages: AppPages.routes,        // <- defined in route/pages.dart
+            initialRoute: AppPages.initial,   // <- use your route constants
+            getPages: AppPages.routes,        // <- defined in route/pages.dart
             // theme: AppTheme().theme,        // hook your theme later
           );
         },
