@@ -1,0 +1,21 @@
+1) clone from git
+git clone https://github.com/lohkaixuan/dodotask-back.git
+cd dodotask-back
+
+2) create venv
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+3) install dep
+pip install -r requirements.txt
+
+4) create .env
+
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.rvxogsx.mongodb.net/dodotask?retryWrites=true&w=majority&appName=Cluster0
+MONGO_DB=dodotask
+JWT_SECRET=supersecret123
+JWT_ALG=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+5) run 
+uvicorn app.main:app --reload --port 8000
