@@ -4,6 +4,7 @@ cd dodotask-back
 
 2) create venv
 python -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass  #if need
 .\.venv\Scripts\Activate.ps1
 
 3) install dep
