@@ -11,7 +11,7 @@ import 'route/pages.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized(); // before runApp
-   runApp(const MyApp());
+  runApp(const MyApp());
   Get.put(AuthGetxController());
 }
 

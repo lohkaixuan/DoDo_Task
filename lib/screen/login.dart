@@ -1,4 +1,4 @@
-import 'package:dodotask/controller/AuthController.dart';
+import 'package:dodotask/controller/authController.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -23,6 +23,7 @@ class _LoginPageState extends State<LoginPage> {
     ];
     loginButton = [
       { 'label': 'Login', 'action': () { /* Handle login logic here */ }, },
+
     ];
   }
 
@@ -63,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
                           )
                         : null,
                   ),
-                  validator: field['validator'] as String? Function(String?)?,
+                  validator: field['validator'] ,
                   obscureText: field['key'] == 'password' ? !passwordVisible : false,
                 ),
                 )),
@@ -90,14 +91,23 @@ class _LoginPageState extends State<LoginPage> {
                   child: Text(button['label'] as String,
                 ),
               ))),
-              const Text(
-                'New User?',
-              ),
-              GestureDetector(
-                child: const Text("Sign Up"),
-                onTap: () {
-                Get.toNamed('/register');
-                },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'New User?  ',
+                  ),
+                  GestureDetector(
+                    child: const Text("Sign Up",
+                      style: TextStyle(
+                        color: Colors.blue,
+                      ),
+                    ),
+                    onTap: () {
+                    Get.toNamed('/register');
+                    },
+                  ),
+                ],
               )
             ],
           ),

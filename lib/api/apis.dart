@@ -32,10 +32,10 @@ class ApiService {
     try {
       // Use the dio alias here to avoid confusion with your ApiResponse
       var response = await _dioClient.dio.post(
-        '/login',
+        '/auth/login',
         data: {"email": email, "password": password,}
       );
-      print("reg api $response");
+      print("login api $response");
       return ApiResponse.fromJson(response.data);
     } on DioException catch (e) {
       throw ApiException(e.response?.statusCode,
@@ -48,7 +48,7 @@ class ApiService {
       // Use the dio alias here to avoid confusion with your ApiResponse
       var response = await _dioClient.dio.post(
         '/auth/register',
-        data: {"email": email, "password": password , "display_name": "display_name"},
+        data: {"email": email, "password": password , "display_name": display_name},
       );
       print("register api $response");
       return registerResponse.fromJson(response.data);
