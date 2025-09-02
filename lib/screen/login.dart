@@ -70,27 +70,31 @@ class _LoginPageState extends State<LoginPage> {
                 )),
               const SizedBox(height: 20),
               ...loginButton.map((button) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                child: ElevatedButton(
-                  onPressed: () {
-                    if(button['label'] == 'Login'){
-                                          if (loginField.any((field) => field['controller'].text.isEmpty)) {
-                      Get.snackbar('Error', 'Please fill all fields');
-                      return;
-                    }            
-                    if (!GetUtils.isEmail(loginField[0]['controller'].text)) {
-                      Get.snackbar('Error', 'Invalid email format');
-                      return;
-                    } 
-                      controller.login(
-                        loginField[0]['controller'].text,
-                        loginField[1]['controller'].text,
-                      );
-                    }
-                  },
-                  child: Text(button['label'] as String,
-                ),
-              ))),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (button['label'] == 'Login') {
+                        if (loginField
+                            .any((field) => field['controller'].text.isEmpty)) {
+                          Get.snackbar('Error', 'Please fill all fields');
+                          return;
+                        }
+                        if (!GetUtils.isEmail(
+                            loginField[0]['controller'].text)) {
+                          Get.snackbar('Error', 'Invalid email format');
+                          return;
+                        }
+                        controller.login(
+                          loginField[0]['controller'].text.trim(),
+                          loginField[1]['controller'].text.trim(),
+                        );
+                      }
+                    },
+                    child: Text(
+                      button['label'] as String,
+                    ),
+                  ))),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

@@ -28,7 +28,8 @@ class ApiService {
   // }
 
   /// 🔹 Authentication APIs
-  Future<ApiResponse> login(String email, String password) async {
+  Future<LoginResponse> login(String email, String password) async {
+    print("login api called");
     try {
       // Use the dio alias here to avoid confusion with your ApiResponse
       var response = await _dioClient.dio.post(
@@ -36,14 +37,30 @@ class ApiService {
         data: {"email": email, "password": password,}
       );
       print("login api $response");
-      return ApiResponse.fromJson(response.data);
+      return LoginResponse.fromJson(response.data);
     } on DioException catch (e) {
       throw ApiException(e.response?.statusCode,
           e.response?.data['message'] ?? 'Something went wrong');
     }
   }
 
-  Future<registerResponse> register(String email, String password, String display_name) async {
+  Future<LoginResponse> loginWithToken(String token) async {
+    print("login token api called");
+    try {
+      // Use the dio alias here to avoid confusion with your ApiResponse
+      var response = await _dioClient.dio.post(
+        '/auth/login',
+        data: {"token": token}
+      );
+      print("login api $response");
+      return LoginResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ApiException(e.response?.statusCode,
+          e.response?.data['message'] ?? 'Something went wrong');
+    }
+  }
+
+  Future<RegisterResponse> register(String email, String password, String display_name) async {
     try {
       // Use the dio alias here to avoid confusion with your ApiResponse
       var response = await _dioClient.dio.post(
@@ -51,7 +68,7 @@ class ApiService {
         data: {"email": email, "password": password , "display_name": display_name},
       );
       print("register api $response");
-      return registerResponse.fromJson(response.data);
+      return RegisterResponse.fromJson(response.data);
     } on DioException catch (e) {
       throw ApiException(e.response?.statusCode,
           e.response?.data['message'] ?? 'Something went wrong');

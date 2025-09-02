@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import '../api/dioclient.dart';
 import '../api/apis.dart';
 import '../route/pages.dart';
+import '../storage/authStorage.dart';
+import 'userController.dart';
 
 class AuthGetxController extends GetxController {
   final dioClient = DioClient();
@@ -15,20 +17,22 @@ class AuthGetxController extends GetxController {
   final isLoggedIn = false.obs;
 
   Future<void> login(String email, String password) async {
+    print("login called $email $password");
     try {
       isLoading.value = true;
       var res = await ApiService(dioClient).login(email, password);
-      //Apis.authLogin, // '/auth/login'
-      //data: {'email': email.text.trim(), 'password': password.text},
 
-      if (res.status == 200) {
+      if (res.message.contains("success")) {
         Get.snackbar('Login', 'Login successful');
-        //Get.offAllNamed(AppRoutes.todo);
+        await AuthStorage.save(res.token, res.id);
+        Get.find<UserController>().setUser(res.id, res.email);
+        Get.offAllNamed('/home');
       } else {
         Get.snackbar('Login failed', 'Server rejected the credentials');
       }
     } catch (e) {
       Get.snackbar('Login error', e.toString());
+      print("login error $e");
     } finally {
       isLoading.value = false;
     }
@@ -38,7 +42,7 @@ class AuthGetxController extends GetxController {
     try {
       isLoading.value = true;
       var res = await ApiService(dioClient).register(email, password, name);
-      if (res.status == 200) {
+      if (res.message .contains("success")) {
         Get.snackbar('Register', 'Registration successful. Please log in.');
         Get.toNamed('/login');
       } else {
