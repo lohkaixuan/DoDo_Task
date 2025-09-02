@@ -1,9 +1,25 @@
+# Web framework & server
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
+
+# Config / typing
 python-dotenv==1.0.1
 pydantic==2.8.2
 pydantic-settings==2.4.0
-beanie==1.26.0 # ODM on top of Motor (MongoDB async)
-passlib[bcrypt]==1.7.4 # password hashing
-python-jose==3.3.0 # JWT
+
+# MongoDB / ODM
+beanie==1.26.0
+motor==3.5.1
+pymongo[srv]==4.8.0
+dnspython==2.6.1   # needed for mongodb+srv URIs
+
+# Auth & security
+passlib[bcrypt]==1.7.4
+python-jose==3.3.0
+cryptography==43.0.1
+ecdsa==0.19.0
 email-validator==2.2.0
+python-multipart==0.0.9  # for form data (e.g., OAuth2PasswordRequestForm)
+
+# HTTP client (AI calls, etc.)
+httpx==0.28.1
