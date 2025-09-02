@@ -21,7 +21,7 @@ class AppPages {
     ),
     GetPage(
       name: '/register',
-      page: () => const RegisterPage(),
+      page: () =>  RegisterPage(),
     ),
   ];
   

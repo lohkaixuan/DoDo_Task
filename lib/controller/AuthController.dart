@@ -5,8 +5,7 @@ import '../api/apis.dart';
 import '../route/pages.dart';
 
 class AuthGetxController extends GetxController {
-  final DioClient client;
-  AuthGetxController(this.client);
+  final dioClient = DioClient();
 
   // form controllers owned by GetX (UI stays thin)
   final email = TextEditingController();
@@ -40,28 +39,21 @@ class AuthGetxController extends GetxController {
     // }
   }
 
-  Future<void> register(String name) async {
-    if (email.text.trim().isEmpty || password.text.isEmpty) {
-      Get.snackbar('Register', 'Please fill all fields');
-      return;
+  Future<void> register(String email, String password, String name) async {
+    try {
+      isLoading.value = true;
+      var res = await ApiService(dioClient).register(email, password, name);
+      if (res.status == 'success') {
+        Get.snackbar('Register', 'Registration successful. Please log in.');
+        Get.toNamed('/login');
+      } else {
+        Get.snackbar('Register failed', res.message);
+      }
+    } catch (e) {
+      Get.snackbar('Register error', e.toString());
+    } finally {
+      isLoading.value = false;
     }
-    // try {
-    //   isLoading.value = true;
-    //   final res = await client.dio.post(
-    //     '/auth/register',              // adjust if your API differs
-    //     data: {'name': name.trim(), 'email': email.text.trim(), 'password': password.text},
-    //   );
-    //   if (res.statusCode == 200 || res.statusCode == 201) {
-    //     Get.snackbar('Success', 'Account created. Please login.');
-    //    // Get.offAllNamed(AppRoutes.login);
-    //   } else {
-    //     Get.snackbar('Register failed', 'Server rejected the data');
-    //   }
-    // } catch (e) {
-    //   Get.snackbar('Register error', e.toString());
-    // } finally {
-    //   isLoading.value = false;
-    // }
   }
 
   void logout() {

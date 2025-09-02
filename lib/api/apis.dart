@@ -28,15 +28,30 @@ class ApiService {
   // }
 
   /// 🔹 Authentication APIs
-  Future<ApiResponse> login(String email, String password) async {
+  Future<ApiResponse> login(String email, String password, String display_name) async {
     try {
       // Use the dio alias here to avoid confusion with your ApiResponse
       var response = await _dioClient.dio.post(
         '/login',
-        data: {"email": email, "password": password},
+        data: {"email": email, "password": password,}
       );
-      print("login api $response");
+      print("reg api $response");
       return ApiResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ApiException(e.response?.statusCode,
+          e.response?.data['message'] ?? 'Something went wrong');
+    }
+  }
+
+  Future<registerResponse> register(String email, String password, String display_name) async {
+    try {
+      // Use the dio alias here to avoid confusion with your ApiResponse
+      var response = await _dioClient.dio.post(
+        '/auth/register',
+        data: {"email": email, "password": password , "display_name": "display_name"},
+      );
+      print("register api $response");
+      return registerResponse.fromJson(response.data);
     } on DioException catch (e) {
       throw ApiException(e.response?.statusCode,
           e.response?.data['message'] ?? 'Something went wrong');
