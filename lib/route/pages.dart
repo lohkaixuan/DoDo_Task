@@ -17,7 +17,7 @@ class AppPages {
     // ),
     GetPage(
       name: '/login',
-      page: () => const LoginPage(),
+      page: () => LoginPage(),
     ),
     GetPage(
       name: '/register',

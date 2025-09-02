@@ -1,11 +1,30 @@
-import 'package:dodotask/main.dart';
-import 'package:dodotask/screen/register.dart';
+import 'package:dodotask/controller/AuthController.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+class LoginPage extends StatefulWidget{
+  LoginPage({super.key});
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
 
-class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+class _LoginPageState extends State<LoginPage> {
+  final AuthGetxController controller = Get.find();
+  late List<Map<String, dynamic>> loginField;//have a kosong container first
+  late List<Map<String, dynamic>> loginButton;
+  bool passwordVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loginField = [
+      { 'label': 'Email', 'key': 'email', 'icon': Icons.email, 'controller': TextEditingController(),  'validator': (value) => value!.isEmpty ? 'Required' : null },
+      { 'label': 'Password', 'key': 'password', 'icon': Icons.password, 'controller': TextEditingController(),  'validator': (value) => value!.isEmpty ? 'Required' : null }
+    ];
+    loginButton = [
+      { 'label': 'Login', 'action': () { /* Handle login logic here */ }, },
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,35 +38,58 @@ class LoginPage extends StatelessWidget {
                 'Login Page',
                 style: TextStyle(fontSize: 24),
               ),
-              const SizedBox(
-                width: 300,
-                height: 60,
-                child: TextField(
+              ...loginField.map((field) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: TextFormField(
+                  keyboardType: field['key'] == 'email'
+                      ? TextInputType.emailAddress
+                      : TextInputType.text,
+                  controller: field['controller'] ,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: 'Enter your email',
+                    labelText: field['label'] as String,
+                    prefixIcon: Icon(field['icon'] as IconData),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: field['key'] == 'password'
+                        ? IconButton(
+                            onPressed: () {
+                              setState(() {
+                                passwordVisible = !passwordVisible;
+                              });
+                            },
+                            icon: Icon(
+                              passwordVisible
+                                  ? Icons.visibility : Icons.visibility_off,
+                            ),
+                          )
+                        : null,
                   ),
+                  validator: field['validator'] as String? Function(String?)?,
+                  obscureText: field['key'] == 'password' ? !passwordVisible : false,
                 ),
-              ),
-              const SizedBox(
-                width: 300,
-                height: 60,
-                child: TextField(
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: 'Enter your password',
-                  ),
+                )),
+              const SizedBox(height: 20),
+              ...loginButton.map((button) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                child: ElevatedButton(
+                  onPressed: () {
+                    if(button['label'] == 'Login'){
+                                          if (loginField.any((field) => field['controller'].text.isEmpty)) {
+                      Get.snackbar('Error', 'Please fill all fields');
+                      return;
+                    }            
+                    if (!GetUtils.isEmail(loginField[0]['controller'].text)) {
+                      Get.snackbar('Error', 'Invalid email format');
+                      return;
+                    } 
+                      controller.login(
+                        loginField[0]['controller'].text,
+                        loginField[1]['controller'].text,
+                      );
+                    }
+                  },
+                  child: Text(button['label'] as String,
                 ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  textStyle: const TextStyle(
-                    color: Colors.white)
-                ),
-                onPressed: () {},
-                child: const Text('Login'),
-              ),
+              ))),
               const Text(
                 'New User?',
               ),

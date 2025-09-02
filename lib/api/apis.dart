@@ -28,7 +28,7 @@ class ApiService {
   // }
 
   /// 🔹 Authentication APIs
-  Future<ApiResponse> login(String email, String password, String display_name) async {
+  Future<ApiResponse> login(String email, String password) async {
     try {
       // Use the dio alias here to avoid confusion with your ApiResponse
       var response = await _dioClient.dio.post(
