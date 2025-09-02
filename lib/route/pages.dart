@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 
-import '../screen/Register.dart';
+import '../screen/register.dart';
 import '../screen/login.dart';
 //import '../screens/splash_screen.dart';
 
