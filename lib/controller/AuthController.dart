@@ -14,29 +14,29 @@ class AuthGetxController extends GetxController {
   final isLoading = false.obs;
   final isLoggedIn = false.obs;
 
-  Future<void> login() async {
-    if (email.text.trim().isEmpty || password.text.isEmpty) {
+  Future<void> login(String email, String password) async {
+/*    if (email.text.trim().isEmpty || password.text.isEmpty) {
       Get.snackbar('Login', 'Please enter email and password');
       return;
-    }
-    // try {
-    //   isLoading.value = true;
-    //   // final res = await client.dio.post(
-    //   //   //Apis.authLogin, // '/auth/login'
-    //   //   //data: {'email': email.text.trim(), 'password': password.text},
-    //   // );
+    }*/
+    try {
+       isLoading.value = true;
+        var res = await ApiService(dioClient).login(email, password);
+          //Apis.authLogin, // '/auth/login'
+          //data: {'email': email.text.trim(), 'password': password.text},
 
-    //   if (res.statusCode == 200) {
-    //     isLoggedIn.value = true;
-    //     //Get.offAllNamed(AppRoutes.todo);
-    //   } else {
-    //     Get.snackbar('Login failed', 'Server rejected the credentials');
-    //   }
-    // } catch (e) {
-    //   Get.snackbar('Login error', e.toString());
-    // } finally {
-    //   isLoading.value = false;
-    // }
+       if (res.status == 200) {
+         isLoggedIn.value = true;
+         Get.snackbar('Login', 'Login successful');
+         //Get.offAllNamed(AppRoutes.todo);
+       } else {
+         Get.snackbar('Login failed', 'Server rejected the credentials');
+       }
+     } catch (e) {
+       Get.snackbar('Login error', e.toString());
+     } finally {
+       isLoading.value = false;
+     }
   }
 
   Future<void> register(String email, String password, String name) async {
