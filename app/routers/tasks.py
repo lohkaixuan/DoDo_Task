@@ -1,10 +1,12 @@
 # app/routers/tasks.py
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, Literal
 from datetime import datetime, date
 import uuid
-from ..db import get_db
+from app.db import get_db
+from app.schemas.response import Envelope
+from app.utils.response import ok, created
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -12,11 +14,11 @@ class TaskIn(BaseModel):
     user_id: str
     title: str
     category: Literal["Academic","Personal","Private"]
-    priority: int = 2            # 1=High,2=Med,3=Low
-    estimated_time: Optional[int] = None  # minutes
+    priority: int = 2
+    estimated_time: Optional[int] = None
     due_date: Optional[date] = None
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, response_model=Envelope[dict])
 async def create_task(body: TaskIn, db = Depends(get_db)):
     task_id = str(uuid.uuid4())
     doc = {
@@ -32,14 +34,13 @@ async def create_task(body: TaskIn, db = Depends(get_db)):
         "created_at": datetime.utcnow().isoformat()
     }
     await db.tasks.insert_one(doc)
-    return {"task_id": task_id, **doc}
+    return created(doc, message="Task created")
 
-@router.post("/{task_id}/start")
+@router.post("/{task_id}/start", response_model=Envelope[dict])
 async def start_task(task_id: str, user_id: str, db = Depends(get_db)):
     task = await db.tasks.find_one({"task_id": task_id, "user_id": user_id})
     if not task:
         raise HTTPException(404, "Task not found")
-    # event for analytics
     await db.events.insert_one({
         "event_id": str(uuid.uuid4()),
         "user_id": user_id,
@@ -47,9 +48,9 @@ async def start_task(task_id: str, user_id: str, db = Depends(get_db)):
         "ts": datetime.utcnow(),
         "context": {"task_id": task_id}
     })
-    return {"ok": True}
+    return ok({"started": True, "task_id": task_id}, message="Task started")
 
-@router.patch("/{task_id}/complete")
+@router.patch("/{task_id}/complete", response_model=Envelope[dict])
 async def complete_task(task_id: str, user_id: str, db = Depends(get_db)):
     task = await db.tasks.find_one({"task_id": task_id, "user_id": user_id})
     if not task:
@@ -64,13 +65,11 @@ async def complete_task(task_id: str, user_id: str, db = Depends(get_db)):
         except Exception:
             pass
 
-    # update task status
     await db.tasks.update_one(
         {"task_id": task_id, "user_id": user_id},
         {"$set": {"status": "done", "completed_at": now.isoformat()}}
     )
 
-    # log complete
     await db.events.insert_one({
         "event_id": str(uuid.uuid4()),
         "user_id": user_id,
@@ -79,7 +78,6 @@ async def complete_task(task_id: str, user_id: str, db = Depends(get_db)):
         "context": {"task_id": task_id}
     })
 
-    # log overdue if late (for pattern analysis)
     if is_overdue:
         await db.events.insert_one({
             "event_id": str(uuid.uuid4()),
@@ -89,4 +87,4 @@ async def complete_task(task_id: str, user_id: str, db = Depends(get_db)):
             "context": {"task_id": task_id}
         })
 
-    return {"ok": True, "overdue": is_overdue}
+    return ok({"completed": True, "task_id": task_id, "overdue": is_overdue}, message="Task completed")

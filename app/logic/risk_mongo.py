@@ -104,7 +104,7 @@ async def _overdue_streak(db, user_id: str, until_day: date, max_days=7):
             break
     return streak
 
-def _choose_pet_reaction(score: float) -> str:
+def choose_pet_reaction(score: float) -> str:
     if score >= 70: return "concern"
     if score >= 40: return "cheer"
     return "idle"
