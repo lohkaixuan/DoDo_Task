@@ -29,3 +29,4 @@ python -m venv .venv
 python -m pip install -U pip wheel
 pip install -r requirement.txt
 uvicorn app.main:app --host 0.0.0.0 --port 1060
+  ngrok http 1060
