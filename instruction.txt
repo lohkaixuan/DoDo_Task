@@ -27,5 +27,5 @@ python -m venv .venv
 # source .venv/bin/activate
 
 python -m pip install -U pip wheel
-pip install -r requirements.txt
+pip install -r requirement.txt
 uvicorn app.main:app --host 0.0.0.0 --port 1060

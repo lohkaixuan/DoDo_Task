@@ -28,7 +28,7 @@ class ChatIn(BaseModel):
 
 class ChatOut(BaseModel):
     reply: str
-    provider: Literal["inworld", "huggingface"]
+    provider: Literal["inworld", "huggingface", "groq"]  # ← 增加 "groq"
     sentiment: Dict[str, Any] | None = None
     risk: Dict[str, Any] | None = None
     ts: datetime
@@ -38,13 +38,11 @@ class ChatOut(BaseModel):
 async def chat(body: ChatIn, db=Depends(get_db)):
     hf = HuggingFaceClient()
 
-    # 1) Perception with HF (sentiment)
+    # 1) 本地情绪 + 风险（防空）
     senti = await hf.analyze_sentiment(body.text)
+    risk = await compute_stress_score(db, body.user_id) or {"score": 0, "signals": []}
 
-    # 2) Risk score to steer tone
-    risk = await compute_stress_score(db, body.user_id)
-
-    # 3) Persona pre-prompt when falling back to HF text gen
+    # 2) persona 在路由层组装
     persona = (
         "You are 'DoDo', a gentle, playful virtual pet companion. "
         "Speak in short, warm sentences with emojis occasionally. "
@@ -57,9 +55,10 @@ async def chat(body: ChatIn, db=Depends(get_db)):
     )
     prompt = f"{persona}\nUser: {body.text}\nPet:"
 
-    # 4) Try Inworld (if configured) else fall back to HF text gen
+    # 3) 优先 Inworld（可选），否则走 Groq
     reply = ""
-    provider: Literal["inworld", "huggingface"] = "huggingface"
+    provider: Literal["inworld", "huggingface", "groq"] = "groq"
+
     if body.use_inworld:
         iw = InworldClient()
         try:
@@ -71,12 +70,13 @@ async def chat(body: ChatIn, db=Depends(get_db)):
             )
             provider = "inworld"
         except Exception:
-            reply = await hf.generate_reply(prompt)
-            provider = "huggingface"
+            reply = await hf.generate_reply(prompt)  # ← 会用 Groq
+            provider = "groq"
     else:
-        reply = await hf.generate_reply(prompt)
+        reply = await hf.generate_reply(prompt)      # ← 会用 Groq
+        provider = "groq"
 
-    # 5) Log the interaction as an event
+    # 4) 事件日志
     await db.events.insert_one(
         {
             "event_id": os.urandom(8).hex(),
@@ -88,7 +88,7 @@ async def chat(body: ChatIn, db=Depends(get_db)):
                 "reply": reply,
                 "provider": provider,
                 "sentiment": senti,
-                "risk": {"score": risk["score"]},
+                "risk": {"score": risk["score"], "signals": risk["signals"]},
             },
         }
     )
