@@ -4,10 +4,10 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from .db import init_db
+from app.routers.pet_ai import router as pet_ai_router
 from .routers import tasks, wellbeing, ai, auth, health_productivity
 from .schemas.response import Envelope
 app = FastAPI(title="DoDoTask Backend")
-
 @app.exception_handler(HTTPException)
 async def http_exc_handler(_: Request, exc: HTTPException):
     return JSONResponse(
@@ -33,6 +33,7 @@ app.add_middleware(
 async def _startup():
     await init_db()
 
+app.include_router(pet_ai_router)
 app.include_router(tasks.router)      # NEW: create/complete tasks (+event logs)
 app.include_router(wellbeing.router)  # your analytics & risk endpoints
 app.include_router(ai.router)         # chat with AI

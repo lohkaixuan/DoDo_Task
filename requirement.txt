@@ -25,4 +25,3 @@ python-multipart==0.0.9  # for form data (e.g., OAuth2PasswordRequestForm)
 httpx==0.28.1
 
 
-sqlalchemy==2.0.32   # 
