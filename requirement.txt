@@ -24,4 +24,5 @@ python-multipart==0.0.9  # for form data (e.g., OAuth2PasswordRequestForm)
 # HTTP client (AI calls, etc.)
 httpx==0.28.1
 
-
+# AI / model hub
+huggingface_hub>=0.23,<1.0
