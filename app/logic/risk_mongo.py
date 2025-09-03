@@ -139,7 +139,8 @@ async def compute_stress_score(db, user_id: str, window: str = "daily"):
     if signals["hydration_low"]: score += 10
 
     score = float(min(100, round(score, 1)))
-    reaction = _choose_pet_reaction(score)
+    reaction = choose_pet_reaction(score)
+    
 
     doc = {
         "user_id": user_id,
@@ -155,10 +156,18 @@ async def compute_stress_score(db, user_id: str, window: str = "daily"):
              else "Looking good—keep steady 💪")
         )
     }
-    await db.stress_risk_scores.insert_one(doc)
+    res = await db.stress_risk_scores.insert_one(doc)
+    return {
+        "score": score,
+        "signals": signals,
+        "id": str(res.inserted_id),   # 可选
+        # 不返回 "_id"
+    }
     # (optional) also update pet mood/energy
-    await db.pets.update_one({"user_id": user_id}, {"$set": {"mood": "concerned" if score>=70 else ("happy" if score<40 else "idle")}}, upsert=True)
-    return doc
+    #await db.pets.update_one({"user_id": user_id}, {"$set": {"mood": "concerned" if score>=70 else ("happy" if score<40 else "idle")}}, upsert=True)
+    #return doc
+
+
 
 async def recommend_new_due_date(db, user_id: str, task_id: str):
     task = await db.tasks.find_one({"task_id": task_id, "user_id": user_id})
