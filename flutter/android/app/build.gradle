@@ -1,0 +1,48 @@
+plugins {
+  id "com.android.application"
+  id "org.jetbrains.kotlin.android"      // <- correct Kotlin plugin id
+  // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+  id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+  namespace "com.example.v3"
+
+  compileSdkVersion 34
+  // Use the EXACT version the plugins require
+  ndkVersion "25.1.8937393"              // <- not "25.2"
+
+  defaultConfig {
+    applicationId "com.example.v3"
+    minSdkVersion 21
+    targetSdkVersion 34
+    versionCode 1
+    versionName "1.0"
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+
+    // Required by flutter_local_notifications et al.
+    coreLibraryDesugaringEnabled true
+  }
+  kotlinOptions {
+    jvmTarget = JavaVersion.VERSION_1_8.toString()
+  }
+
+  buildTypes {
+    release {
+      signingConfig signingConfigs.debug
+    }
+  }
+}
+
+flutter {
+  source "../.."
+}
+
+dependencies {
+  // Backport Java 8+ APIs for older Android versions
+  coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
+}

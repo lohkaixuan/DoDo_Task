@@ -1,0 +1,6 @@
+Let's do a tiny task!|idle
+Hydration check 💧|hydration
+You got this~|encourage
+Stretch time? 🧘|stretch
+We’re a great team!|encourage
+Nice job! 🎉|taskCompleted
