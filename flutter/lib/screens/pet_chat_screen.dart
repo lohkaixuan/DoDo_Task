@@ -1,19 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../controller/petChatController.dart';
 import '../widgets/pet_header.dart';
-import '../models/task.dart';
 
 class PetChatScreen extends StatelessWidget {
-  const PetChatScreen({super.key, this.mode});
-  final TaskMode? mode; // optional: pick header image by mode
-
-  String _modeImg(TaskMode m) => switch (m) {
-        TaskMode.study    => 'assets/modes/study.png',
-        TaskMode.wellness => 'assets/modes/wellness.png',
-        TaskMode.family   => 'assets/modes/family.png',
-        TaskMode.personal => 'assets/modes/personal.png',
-      };
+  const PetChatScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +15,8 @@ class PetChatScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Pet AI')),
       body: Column(
         children: [
-          // Cute header (uses your PetHeader)
-          PetHeader(
-            imageOverride: mode != null ? _modeImg(mode!) : null,
-            statusOverride: 'Chat with your buddy',
-          ),
+          // Cute header (uses PetHeader)
+          const PetHeader(statusOverride: 'Chat with your buddy'),
           Expanded(
             child: Obx(() {
               return ListView.builder(
@@ -130,15 +119,15 @@ class _Typing extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
-        children: [
-          const SizedBox(width: 6),
-          const _Dot(),
-          const SizedBox(width: 4),
-          const _Dot(delayMs: 150),
-          const SizedBox(width: 4),
-          const _Dot(delayMs: 300),
-          const SizedBox(width: 10),
-          Text('Pet is thinking…', style: TextStyle(color: Colors.grey.shade600)),
+        children: const [
+          SizedBox(width: 6),
+          _Dot(),
+          SizedBox(width: 4),
+          _Dot(delayMs: 150),
+          SizedBox(width: 4),
+          _Dot(delayMs: 300),
+          SizedBox(width: 10),
+          Text('Pet is thinking…', style: TextStyle(color: Colors.grey)),
         ],
       ),
     );
