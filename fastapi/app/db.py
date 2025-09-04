@@ -4,47 +4,51 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ServerSelectionTimeoutError
 from beanie import init_beanie
+import certifi
 
-# 🔹 load .env first
 load_dotenv()
 
-# 🔹 envs (supports both names just in case)
-MONGO_URI = os.getenv("MONGO_URI") 
+MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB  = os.getenv("MONGO_DB", "dodotask")
 
-# 🔹 import your Beanie Document(s)
-#    If your file is app/models/user.py with class User(Document),
-#    this path is correct. If it's app/user.py, change to: from .user import User
 from .models.user import User
 
 _client: AsyncIOMotorClient | None = None
 
 async def init_db():
-    """
-    Init Mongo client, verify connection, init Beanie for User,
-    and create helpful indexes for CRUD collections.
-    """
     global _client
-    _client = AsyncIOMotorClient(
-        MONGO_URI,
-        uuidRepresentation="standard",   # good for UUIDs
-        serverSelectionTimeoutMS=5000,   # fast fail if misconfigured
-    )
+
+    # 👇 如果是 Atlas（mongodb+srv://），启用 TLS + certifi；否则（本地）不加 TLS
+    if MONGO_URI and MONGO_URI.startswith("mongodb+srv://"):
+        _client = AsyncIOMotorClient(
+            MONGO_URI,
+            uuidRepresentation="standard",
+            serverSelectionTimeoutMS=5000,
+            tls=True,
+            tlsCAFile=certifi.where(),
+        )
+    else:
+        _client = AsyncIOMotorClient(
+            MONGO_URI,
+            uuidRepresentation="standard",
+            serverSelectionTimeoutMS=5000,
+        )
+
     db = _client[MONGO_DB]
 
-    # ✅ verify Atlas/local is reachable
+    # ping 一下，确保连接可用
     try:
         await db.command({"ping": 1})
     except ServerSelectionTimeoutError as e:
         raise RuntimeError(
             f"Cannot connect to Mongo at {MONGO_URI}. "
-            f"Check Atlas IP allowlist / credentials (and install dnspython). Original: {e}"
+            f"Check local service for mongodb://... or Atlas IP allowlist for mongodb+srv://. Original: {e}"
         ) from e
 
-    # ✅ Beanie ODM for documents that need it (only User for now)
+    # Beanie 文档（目前只有 User）
     await init_beanie(database=db, document_models=[User])
 
-    # ✅ Indexes for fast queries & constraints
+    # 常用索引
     await db.tasks.create_index([("user_id", 1), ("due_date", 1)])
     await db.tasks.create_index([("user_id", 1), ("status", 1)])
     await db.pets.create_index("user_id", unique=True)
@@ -58,7 +62,6 @@ async def init_db():
     return db
 
 def get_db():
-    """Return Motor database (for CRUD-only usage in routers)."""
     if _client is None:
         raise RuntimeError("DB not initialized — call init_db() at startup.")
     return _client[MONGO_DB]
