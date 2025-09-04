@@ -159,4 +159,5 @@ class NotificationService {
   Future<void> cancelForTask(String taskId) async {
     await _plugin.cancelAll();
   }
+  
 }

@@ -61,12 +61,16 @@ class NotificationPrefs {
   /// Remind before/at due
   final bool remindBeforeDue;
   final Duration remindBeforeDueOffset; // e.g., 2h before due
-
   final bool remindOnDue;
 
   /// For “today” nudges when a task date == today (e.g., hourly or daily)
   final RepeatGranularity repeatWhenToday; // none/hour/day
-  final int repeatInterval; // every N hours or N days
+  final int repeatInterval;                // every N hours or N days
+
+  /// NEW: exact local time for the daily nudge (when repeatWhenToday == day)
+  /// If null, the app will fall back to (9:00).
+  final int? dailyHour;                    // 0–23
+  final int? dailyMinute;                  // 0–59
 
   const NotificationPrefs({
     this.remindBeforeStart = true,
@@ -77,6 +81,8 @@ class NotificationPrefs {
     this.remindOnDue = true,
     this.repeatWhenToday = RepeatGranularity.none,
     this.repeatInterval = 1,
+    this.dailyHour,
+    this.dailyMinute,
   });
 
   NotificationPrefs copyWith({
@@ -88,6 +94,8 @@ class NotificationPrefs {
     bool? remindOnDue,
     RepeatGranularity? repeatWhenToday,
     int? repeatInterval,
+    int? dailyHour,
+    int? dailyMinute,
   }) =>
       NotificationPrefs(
         remindBeforeStart: remindBeforeStart ?? this.remindBeforeStart,
@@ -100,6 +108,8 @@ class NotificationPrefs {
         remindOnDue: remindOnDue ?? this.remindOnDue,
         repeatWhenToday: repeatWhenToday ?? this.repeatWhenToday,
         repeatInterval: repeatInterval ?? this.repeatInterval,
+        dailyHour: dailyHour ?? this.dailyHour,
+        dailyMinute: dailyMinute ?? this.dailyMinute,
       );
 
   Map<String, dynamic> toJson() => {
@@ -111,6 +121,8 @@ class NotificationPrefs {
         'remindOnDue': remindOnDue,
         'repeatWhenToday': repeatWhenToday.name,
         'repeatInterval': repeatInterval,
+        'dailyHour': dailyHour,
+        'dailyMinute': dailyMinute,
       };
 
   factory NotificationPrefs.fromJson(Map<String, dynamic> json) {
@@ -136,6 +148,8 @@ class NotificationPrefs {
       remindOnDue: json['remindOnDue'] ?? true,
       repeatWhenToday: gran,
       repeatInterval: json['repeatInterval'] ?? 1,
+      dailyHour: json['dailyHour'],
+      dailyMinute: json['dailyMinute'],
     );
   }
 }

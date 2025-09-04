@@ -69,7 +69,10 @@ class _PetHeadFloatingState extends State<PetHeadFloating> {
         top: _pos.dy,
         child: GestureDetector(
           onPanUpdate: (d) => setState(() => _pos = _clamp(_pos + d.delta)),
-          onTap: widget.onTap,
+          onTap: () {
+            if (widget.onTap != null) widget.onTap!();
+            Get.toNamed('/pet');
+          },
           child: Container(
             width: widget.size,
             height: widget.size,

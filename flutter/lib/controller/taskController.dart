@@ -32,13 +32,20 @@ class TaskController extends GetxController {
     }
   }
 
+  void removeById(String id) {
+    notifier.cancelForTask(id);
+    tasks.removeWhere((x) => x.id == id);
+    update();
+  }
+
+  void remove(Task t) => removeById(t.id);
+
   void completeTask(String id) {
     final idx = tasks.indexWhere((x) => x.id == id);
     if (idx >= 0) {
       final before = tasks[idx];
       final now = DateTime.now();
-      final after =
-          before.copyWith(status: TaskStatus.completed, updatedAt: now);
+      final after = before.copyWith(status: TaskStatus.completed, updatedAt: now);
       tasks[idx] = after;
       notifier.cancelForTask(id);
 
@@ -46,12 +53,10 @@ class TaskController extends GetxController {
       bool early = false, onTime = false, late = false;
       if (after.type == TaskType.singleDay && after.dueDateTime != null) {
         early = now.isBefore(after.dueDateTime!);
-        onTime =
-            !early && now.difference(after.dueDateTime!).inMinutes.abs() <= 5;
+        onTime = !early && now.difference(after.dueDateTime!).inMinutes.abs() <= 5;
         late = now.isAfter(after.dueDateTime!);
       } else if (after.type == TaskType.ranged && after.dueDate != null) {
-        final dueEnd = DateTime(after.dueDate!.year, after.dueDate!.month,
-            after.dueDate!.day, 23, 59, 59);
+        final dueEnd = DateTime(after.dueDate!.year, after.dueDate!.month, after.dueDate!.day, 23, 59, 59);
         early = now.isBefore(dueEnd);
         onTime = !early && now.difference(dueEnd).inMinutes.abs() <= 5;
         late = now.isAfter(dueEnd);
@@ -83,14 +88,10 @@ class TaskController extends GetxController {
     final i = tasks.indexWhere((x) => x.id == taskId);
     if (i < 0) return;
     final t = tasks[i];
-    final subs = t.subtasks
-        .map((s) => s.id == subId ? s.copyWith(status: status) : s)
-        .toList();
+    final subs = t.subtasks.map((s) => s.id == subId ? s.copyWith(status: status) : s).toList();
     updateTask(t.copyWith(
       subtasks: subs,
-      status: t.progress >= 1.0
-          ? TaskStatus.completed
-          : t.computeStatus(DateTime.now()),
+      status: t.progress >= 1.0 ? TaskStatus.completed : t.computeStatus(DateTime.now()),
     ));
   }
 
@@ -106,32 +107,29 @@ class TaskController extends GetxController {
     }
   }
 
-void markInProgress(String id) {
-  final i = tasks.indexWhere((t) => t.id == id);
-  if (i < 0) return;
-  final t = tasks[i];
-  if (t.status != TaskStatus.inProgress) {
-    tasks[i] = t.copyWith(status: TaskStatus.inProgress, updatedAt: DateTime.now());
-    update();
+  /// Called by the FocusTimer when user hits Start so the donut refreshes instantly.
+  void markInProgress(String id) {
+    final i = tasks.indexWhere((t) => t.id == id);
+    if (i < 0) return;
+    final t = tasks[i];
+    if (t.status != TaskStatus.inProgress) {
+      tasks[i] = t.copyWith(status: TaskStatus.inProgress, updatedAt: DateTime.now());
+      update();
+    }
   }
-}
+
   // ===== Dashboard buckets =====
   List<Task> get notStarted {
     final now = DateTime.now();
-    return tasks
-        .where((t) => t.computeStatus(now) == TaskStatus.notStarted)
-        .toList();
+    return tasks.where((t) => t.computeStatus(now) == TaskStatus.notStarted).toList();
   }
 
   List<Task> get inProgress {
     final now = DateTime.now();
-    return tasks
-        .where((t) => t.computeStatus(now) == TaskStatus.inProgress)
-        .toList();
+    return tasks.where((t) => t.computeStatus(now) == TaskStatus.inProgress).toList();
   }
 
-  List<Task> get completed =>
-      tasks.where((t) => t.status == TaskStatus.completed).toList();
+  List<Task> get completed => tasks.where((t) => t.status == TaskStatus.completed).toList();
 
   List<Task> get late {
     final now = DateTime.now();
@@ -161,8 +159,7 @@ void markInProgress(String id) {
         due = (1440 - mins).clamp(0, 1440) / 1440 * 2.0; // within 24h
       }
     } else if (t.type == TaskType.ranged && t.dueDate != null) {
-      final end = DateTime(
-          t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59, 59);
+      final end = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59, 59);
       final mins = end.difference(now).inMinutes;
       if (mins <= 0) {
         due = 2.5;
@@ -172,10 +169,8 @@ void markInProgress(String id) {
     }
 
     // Quick wins: short estimated tasks
-    // Quick wins: short estimated tasks (use task-level estimate, else sum subtasks)
-    final int est = t.estimatedMinutes ??
-        t.subtasks.fold<int>(0, (a, s) => a + (s.estimatedMinutes ?? 0));
-
+    final int est =
+        t.estimatedMinutes ?? t.subtasks.fold<int>(0, (a, s) => a + (s.estimatedMinutes ?? 0));
     final double quick = (est == 0)
         ? 0.3
         : (est <= 30)
@@ -192,10 +187,8 @@ void markInProgress(String id) {
 
   List<Task> recommended({int max = 5}) {
     final now = DateTime.now();
-    final candidates =
-        tasks.where((t) => t.status != TaskStatus.completed).toList();
-    candidates.sort(
-        (a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
+    final candidates = tasks.where((t) => t.status != TaskStatus.completed).toList();
+    candidates.sort((a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
     return candidates.take(max).toList();
   }
 
@@ -205,121 +198,75 @@ void markInProgress(String id) {
     final now = DateTime.now();
 
     if (t.type == TaskType.singleDay && t.dueDateTime != null) {
+      // Due reminders
       if (t.notify.remindBeforeDue) {
         final dt = t.dueDateTime!.subtract(t.notify.remindBeforeDueOffset);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueSoon',
-            dt,
-            _msgDueSoon(t),
-            payload: t.id,
-          );
+          notifier.scheduleOneShot(t.id, 'dueSoon', dt, _msgDueSoon(t), payload: t.id);
         }
       }
       if (t.notify.remindOnDue) {
         final dt = t.dueDateTime!;
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueNow',
-            dt,
-            _msgDueNow(t),
-            payload: t.id,
-          );
+          notifier.scheduleOneShot(t.id, 'dueNow', dt, _msgDueNow(t), payload: t.id);
         }
       }
-      if (t.isDueToday(now) &&
-          t.notify.repeatWhenToday != RepeatGranularity.none) {
+      // Today nudges
+      if (t.isDueToday(now) && t.notify.repeatWhenToday != RepeatGranularity.none) {
         if (t.notify.repeatWhenToday == RepeatGranularity.hour) {
-          notifier.scheduleHourly(
-            t.id,
-            'todayNudge',
-            t.notify.repeatInterval,
-            _msgToday(t),
-            payload: t.id,
-          );
+          notifier.scheduleHourly(t.id, 'todayNudge', t.notify.repeatInterval, _msgToday(t),
+              payload: t.id);
         } else if (t.notify.repeatWhenToday == RepeatGranularity.day) {
           notifier.scheduleDaily(
             t.id,
             'todayNudgeDaily',
             _msgToday(t),
+            hour: t.notify.dailyHour ?? 9,
+            minute: t.notify.dailyMinute ?? 0,
             payload: t.id,
           );
         }
       }
-    } else if (t.type == TaskType.ranged &&
-        t.startDate != null &&
-        t.dueDate != null) {
+    } else if (t.type == TaskType.ranged && t.startDate != null && t.dueDate != null) {
       // Start reminders
       if (t.notify.remindBeforeStart) {
         final dt = t.startDate!.subtract(t.notify.remindBeforeStartOffset);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'startSoon',
-            dt,
-            _msgStartSoon(t),
-            payload: t.id,
-          );
+          notifier.scheduleOneShot(t.id, 'startSoon', dt, _msgStartSoon(t), payload: t.id);
         }
       }
       if (t.notify.remindOnStart) {
-        final dt = DateTime(
-            t.startDate!.year, t.startDate!.month, t.startDate!.day, 8);
+        final dt = DateTime(t.startDate!.year, t.startDate!.month, t.startDate!.day, 8, 0);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'startToday',
-            dt,
-            _msgStartToday(t),
-            payload: t.id,
-          );
+          notifier.scheduleOneShot(t.id, 'startToday', dt, _msgStartToday(t), payload: t.id);
         }
       }
       // Due reminders
       if (t.notify.remindBeforeDue) {
-        final dt =
-            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59)
-                .subtract(t.notify.remindBeforeDueOffset);
+        final dt = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59)
+            .subtract(t.notify.remindBeforeDueOffset);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueSoon',
-            dt,
-            _msgDueSoon(t),
-            payload: t.id,
-          );
+          notifier.scheduleOneShot(t.id, 'dueSoon', dt, _msgDueSoon(t), payload: t.id);
         }
       }
       if (t.notify.remindOnDue) {
-        final dt =
-            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
+        final dt = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueToday',
-            dt,
-            _msgDueNow(t),
-            payload: t.id,
-          );
+          notifier.scheduleOneShot(t.id, 'dueToday', dt, _msgDueNow(t), payload: t.id);
         }
       }
       // Today nudges when within the range
       if (!_isBeforeDay(now, t.startDate!) && !_isAfterDay(now, t.dueDate!)) {
         if (t.notify.repeatWhenToday == RepeatGranularity.hour) {
-          notifier.scheduleHourly(
-            t.id,
-            'todayNudge',
-            t.notify.repeatInterval,
-            _msgToday(t),
-            payload: t.id,
-          );
+          notifier.scheduleHourly(t.id, 'todayNudge', t.notify.repeatInterval, _msgToday(t),
+              payload: t.id);
         } else if (t.notify.repeatWhenToday == RepeatGranularity.day) {
           notifier.scheduleDaily(
             t.id,
             'todayNudgeDaily',
             _msgToday(t),
+            hour: t.notify.dailyHour ?? 9,
+            minute: t.notify.dailyMinute ?? 0,
             payload: t.id,
           );
         }
@@ -327,15 +274,11 @@ void markInProgress(String id) {
     }
   }
 
-  String _msgStartSoon(Task t) =>
-      "‘${t.title}’ starts soon. Plan your first session.";
-  String _msgStartToday(Task t) =>
-      "‘${t.title}’ starts today. Kick off with 25 min!";
-  String _msgDueSoon(Task t) =>
-      "‘${t.title}’ due soon. Wrap up remaining subtasks.";
+  String _msgStartSoon(Task t) => "‘${t.title}’ starts soon. Plan your first session.";
+  String _msgStartToday(Task t) => "‘${t.title}’ starts today. Kick off with 25 min!";
+  String _msgDueSoon(Task t) => "‘${t.title}’ due soon. Wrap up remaining subtasks.";
   String _msgDueNow(Task t) => "‘${t.title}’ due today. Final push!";
-  String _msgToday(Task t) =>
-      "Stay on track: ‘${t.title}’. Start a focus timer.";
+  String _msgToday(Task t) => "Stay on track: ‘${t.title}’. Start a focus timer.";
 
   bool _isBeforeDay(DateTime a, DateTime b) {
     final bb = DateTime(b.year, b.month, b.day);
@@ -389,8 +332,7 @@ void markInProgress(String id) {
         title: isSingle ? 'Finish $cat task $i' : 'Work on $cat project $i',
         category: cat,
         type: isSingle ? TaskType.singleDay : TaskType.ranged,
-        dueDateTime:
-            isSingle ? now.add(Duration(hours: (i % 8) * 3 + 2)) : null,
+        dueDateTime: isSingle ? now.add(Duration(hours: (i % 8) * 3 + 2)) : null,
         startDate: isSingle ? null : now.subtract(Duration(days: i % 2)),
         dueDate: isSingle ? null : now.add(Duration(days: 1 + (i % 5))),
         priority: pri,
@@ -401,8 +343,7 @@ void markInProgress(String id) {
             : [
                 SubTask(id: 's_${uid}_1', title: 'Read', estimatedMinutes: 30),
                 SubTask(id: 's_${uid}_2', title: 'Notes', estimatedMinutes: 30),
-                SubTask(
-                    id: 's_${uid}_3', title: 'Practice', estimatedMinutes: 30),
+                SubTask(id: 's_${uid}_3', title: 'Practice', estimatedMinutes: 30),
               ],
       );
       addTask(t);

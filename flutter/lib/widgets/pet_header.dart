@@ -29,7 +29,7 @@ String _spriteFromEmotion(int emotion) {
   // you can tweak thresholds and file names
   if (emotion >= 75) return 'assets/happy.gif';
   if (emotion >= 40) return 'assets/sad.png';
-  return 'assets/pet/sad.png';
+  return 'assets/sad.png';
 }
 
   @override
