@@ -1,77 +1,88 @@
+// lib/widgets/pet_head_floating.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../screens/pet_chat_screen.dart';
+import '../controller/petController.dart';
 
-class PetChatHead extends StatefulWidget {
-  const PetChatHead({super.key});
+/// Draggable floating pet head.
+/// - Stays on top (add it as the last child in your Stack)
+/// - Clamped away from status bar & bottom nav area
+class PetHeadFloating extends StatefulWidget {
+  const PetHeadFloating({
+    super.key,
+    this.bottomReserve = 88, // keep clear of bottom nav / pill
+    this.size = 56,
+    this.onTap,              // optional action when user taps the pet
+  });
+
+  final double bottomReserve;
+  final double size;
+  final VoidCallback? onTap;
+
   @override
-  State<PetChatHead> createState() => _PetChatHeadState();
+  State<PetHeadFloating> createState() => _PetHeadFloatingState();
 }
 
-class _PetChatHeadState extends State<PetChatHead> {
-  // bubble size
-  final double size = 56;
+class _PetHeadFloatingState extends State<PetHeadFloating> {
+  // Start near bottom-right by default; we finalize in build with screen size.
+  Offset _pos = const Offset(0, 0);
+  bool _initialized = false;
 
-  // starting position
-  Offset pos = const Offset(16, 420);
-
-  void _onDrag(DragUpdateDetails d) {
-    final mq = MediaQuery.of(context);
-    final screen = mq.size;
-    final insets = mq.padding;
-
-    // new tentative position
-    final next = pos + d.delta;
-
-    // clamp inside safe area
-    final minX = 8.0;
-    final maxX = screen.width - size - 8.0;
-    final minY = insets.top + 8.0;
-    final maxY = screen.height - size - insets.bottom - 8.0;
-
-    setState(() {
-      pos = Offset(
-        next.dx.clamp(minX, maxX),
-        next.dy.clamp(minY, maxY),
-      );
-    });
-  }
-
-  void _snapToEdge(DragEndDetails d) {
-    // snap left/right for a nicer feel
-    final screenW = MediaQuery.of(context).size.width;
-    final targetX = (pos.dx + size / 2 < screenW / 2) ? 8.0 : screenW - size - 8.0;
-    setState(() => pos = Offset(targetX, pos.dy));
+  String _imgFor(int mood) {
+    if (mood >= 70) return 'assets/dance.gif';
+    if (mood <= 25) return 'assets/sad.png';
+    return 'assets/eat.gif';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      left: pos.dx,
-      top: pos.dy,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanUpdate: _onDrag,
-        onPanEnd: _snapToEdge,
-        onTap: () => Get.to(() => const PetChatScreen()),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black26)],
-          ),
-          // ⬇️ real scaling: just pad the image inside the circle
-          child: Padding(
-            padding: const EdgeInsets.all(10), // increase to make the icon smaller
-            child: Image.asset(
-              'assets/logo.png',
-              fit: BoxFit.contain,
+    final pet = Get.find<PetController>();
+
+    final mq = MediaQuery.of(context);
+    final topPad = mq.padding.top;
+    final width = mq.size.width;
+    final height = mq.size.height;
+
+    // Usable area for the top-left of the circle
+    final minX = 8.0;
+    final minY = topPad + 8.0;
+    final maxX = width - widget.size - 8.0;
+    final maxY = height - widget.size - widget.bottomReserve;
+
+    // First build: place near bottom-right
+    if (!_initialized) {
+      _pos = Offset(maxX, maxY);
+      _initialized = true;
+    }
+
+    // Ensure we stay clamped after rotations / resizes
+    Offset _clamp(Offset p) => Offset(
+          p.dx.clamp(minX, maxX).toDouble(),
+          p.dy.clamp(minY, maxY).toDouble(),
+        );
+    _pos = _clamp(_pos);
+
+    return Obx(() {
+      final asset = _imgFor(pet.emotion.value);
+
+      return Positioned(
+        left: _pos.dx,
+        top: _pos.dy,
+        child: GestureDetector(
+          onPanUpdate: (d) => setState(() => _pos = _clamp(_pos + d.delta)),
+          onTap: widget.onTap,
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [BoxShadow(blurRadius: 8, color: Colors.black26)],
             ),
+            clipBehavior: Clip.antiAlias,
+            child: Image.asset(asset, fit: BoxFit.cover),
           ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

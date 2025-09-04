@@ -1,194 +1,162 @@
 // lib/services/notification_service.dart
-import 'dart:async';
-import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-/// Callbacks supplied by your app
-typedef OnSelectTaskFromNotification = Future<void> Function(String taskId);
-
 class NotificationService {
-  NotificationService._();
-  static final NotificationService instance = NotificationService._();
+  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
-
-  bool _initialized = false;
-
-  // We keep a ticker per task id to periodically update "m left".
-  final Map<int, Timer> _ongoingTickers = {};
-
-  OnSelectTaskFromNotification? _onSelectTask;
-
-  Future<void> init({OnSelectTaskFromNotification? onSelectTask}) async {
-    if (_initialized) return;
-    _onSelectTask = onSelectTask;
-
+  NotificationService() {
     tz.initializeTimeZones();
-    tz.setLocalLocation(tz.local);
+  }
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosInit = DarwinInitializationSettings();
+  Future<void> init({Future<void> Function(String payload)? onSelectPayload}) async {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const ios = DarwinInitializationSettings();
+    const init = InitializationSettings(android: android, iOS: ios);
 
     await _plugin.initialize(
-      const InitializationSettings(android: androidInit, iOS: iosInit),
-      // Taps on notifications (foreground/background/terminated)
+      init,
       onDidReceiveNotificationResponse: (resp) async {
-        final payload = resp.payload ?? '';
-        if (payload.startsWith('focus:')) {
-          final taskId = payload.substring('focus:'.length);
-          if (_onSelectTask != null) {
-            await _onSelectTask!(taskId);
-          }
+        final payload = resp.payload;
+        if (onSelectPayload != null && payload != null) {
+          await onSelectPayload(payload);
         }
       },
     );
-
-    // Notification runtime permission (Android 13+); safe to no-op on iOS/older
-    if (Platform.isAndroid) {
-      final impl = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
-      await impl?.requestNotificationsPermission();
-    } else {
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(alert: true, sound: true, badge: true);
-    }
-
-    _initialized = true;
   }
 
-  // ===== Ongoing =====
+  // ---------- Common details ----------
+  NotificationDetails _defaultDetails() {
+    const android = AndroidNotificationDetails(
+      'tasks_channel',
+      'Tasks',
+      channelDescription: 'Task reminders and focus nudges',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const ios = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    return const NotificationDetails(android: android, iOS: ios);
+  }
 
-  Future<void> showOngoing({
+  // Stable hash to turn (taskId|key) into an int ID
+  int _hash(String s) {
+    int h = 0;
+    for (var i = 0; i < s.length; i++) {
+      h = 0x1fffffff & (h + s.codeUnitAt(i));
+      h = 0x1fffffff & (h + ((0x0007ffff & h) << 10));
+      h ^= (h >> 6);
+    }
+    h = 0x1fffffff & (h + ((0x03ffffff & h) << 3));
+    h ^= (h >> 11);
+    h = 0x1fffffff & (h + ((0x00003fff & h) << 15));
+    return h & 0x7fffffff;
+  }
+
+  // ---------- One-shot ----------
+  Future<void> scheduleOneShot(
+    String taskId,
+    String key,
+    DateTime when,
+    String body, {
+    String? payload,
+  }) async {
+    final id = _hash('$taskId|$key');
+    final tzz = tz.TZDateTime.from(when, tz.local);
+    await _plugin.zonedSchedule(
+      id,
+      'Reminder',
+      body,
+      tzz,
+      _defaultDetails(),
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: null,
+      payload: payload ?? taskId,
+    );
+  }
+
+  // ---------- Hourly repeating ----------
+  // (If you need "every 2 hours", schedule your own rolling one-shots.)
+  Future<void> scheduleHourly(
+    String taskId,
+    String key,
+    int everyNHours,
+    String body, {
+    String? payload,
+  }) async {
+    final id = _hash('$taskId|hourly|$key');
+    await _plugin.periodicallyShow(
+      id,
+      'Reminder',
+      body,
+      RepeatInterval.hourly,
+      _defaultDetails(),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: payload ?? taskId,
+    );
+  }
+
+  // ---------- Daily at a time ----------
+  Future<void> scheduleDaily(
+    String taskId,
+    String key,
+    String body, {
+    int hour = 9,
+    int minute = 0,
+    String? payload,
+  }) async {
+    final id = _hash('$taskId|daily|$key');
+    final now = tz.TZDateTime.now(tz.local);
+    var next = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (!next.isAfter(now)) next = next.add(const Duration(days: 1));
+
+    await _plugin.zonedSchedule(
+      id,
+      'Reminder',
+      body,
+      next,
+      _defaultDetails(),
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: payload ?? taskId,
+    );
+  }
+
+  // ---------- Ongoing "Focus" sticky ----------
+  Future<void> showFocusOngoing({
     required int id,
     required String title,
-    required String body,
-    required String taskIdPayload,
+    required int minutesLeft,
   }) async {
-    await init();
-
-    if (!Platform.isAndroid) {
-      // iOS doesn't support true ongoing; still show a normal one.
-      await _plugin.show(
-        id,
-        title,
-        body,
-        const NotificationDetails(
-          iOS: DarwinNotificationDetails(presentSound: false),
-        ),
-        payload: 'focus:$taskIdPayload',
-      );
-      return;
-    }
-
     const android = AndroidNotificationDetails(
-      'focus_timer_running',
-      'Focus Timer (Running)',
-      channelDescription: 'Shows remaining time while a focus timer runs',
+      'focus_timer',
+      'Focus timer',
+      channelDescription: 'Shows the current focus session',
       importance: Importance.low,
       priority: Priority.low,
       ongoing: true,
       onlyAlertOnce: true,
-      playSound: false,
-      showWhen: true,
-      category: AndroidNotificationCategory.progress,
+      visibility: NotificationVisibility.public,
     );
-
     await _plugin.show(
       id,
-      title,
-      body,
+      'Focusing: $title',
+      'Time left: ${minutesLeft}m',
       const NotificationDetails(android: android),
-      payload: 'focus:$taskIdPayload',
     );
   }
 
-  Future<void> updateOngoing({
-    required int id,
-    required String title,
-    required String body,
-    required String taskIdPayload,
-  }) async {
-    // Re-issue same id = updates it
-    await showOngoing(
-      id: id,
-      title: title,
-      body: body,
-      taskIdPayload: taskIdPayload,
-    );
-  }
+  Future<void> cancelId(int id) async => _plugin.cancel(id);
 
-  Future<void> clearOngoing(int id) async {
-    // Also cancel the ticker if any
-    _ongoingTickers.remove(id)?.cancel();
-    await _plugin.cancel(id);
-  }
-
-  /// Start a periodic updater (every [interval]) that calls [remainingText]
-  /// and updates the ongoing notification body.
-  void startOngoingTicker({
-    required int id,
-    required String taskIdPayload,
-    required String title,
-    required String Function() remainingText, // e.g. "25 min total • 23m left"
-    Duration interval = const Duration(minutes: 3),
-  }) {
-    _ongoingTickers.remove(id)?.cancel(); // in case already exists
-    _ongoingTickers[id] = Timer.periodic(interval, (_) async {
-      await updateOngoing(
-        id: id,
-        title: title,
-        body: remainingText(),
-        taskIdPayload: taskIdPayload,
-      );
-    });
-  }
-
-  // ===== End alert =====
-
-  Future<void> scheduleEnd({
-    required int id,
-    required DateTime when,
-    required String title,
-    required String body,
-    String? taskIdPayload,
-  }) async {
-    await init();
-    final tzWhen = tz.TZDateTime.from(when, tz.local);
-
-    const android = AndroidNotificationDetails(
-      'focus_timer_end',
-      'Focus Timer (End)',
-      channelDescription: 'Alerts when focus session ends',
-      importance: Importance.high,
-      priority: Priority.high,
-      playSound: true,
-    );
-    const ios = DarwinNotificationDetails(presentSound: true);
-
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tzWhen,
-      const NotificationDetails(android: android, iOS: ios),
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: taskIdPayload != null ? 'focus:$taskIdPayload' : null,
-    );
-  }
-
-  Future<void> cancel(int id) => _plugin.cancel(id);
-  Future<void> cancelAll() async {
-    for (final t in _ongoingTickers.values) {
-      t.cancel();
-    }
-    _ongoingTickers.clear();
+  // Simple strategy: cancel all notifications for a task (and generally).
+  // If you want fine-grained cancel per (taskId,key), store their IDs and cancel them by id.
+  Future<void> cancelForTask(String taskId) async {
     await _plugin.cancelAll();
   }
 }

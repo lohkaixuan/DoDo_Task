@@ -7,7 +7,7 @@ class DioClient {
   DioClient()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: "https://d13edcb7cf51.ngrok-free.app".trim(), // ✅ Change to your API URL
+            baseUrl: "https://4fe94ee729b7.ngrok-free.app".trim(), // ✅ Change to your API URL
             connectTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 10),
             responseType: ResponseType.json, 
