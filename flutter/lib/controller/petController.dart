@@ -52,7 +52,7 @@ class PetController extends GetxController {
     if (e >= 80) return 'assets/dance.gif';
     if (e >= 50) return 'assets/eat.gif';
     if (e >= 25) return 'assets/sad.png';
-    return 'assets/pet/sad.png';
+    return 'assets/sad.png';
   }
   void addExp(int points) {
     exp.value += points;
