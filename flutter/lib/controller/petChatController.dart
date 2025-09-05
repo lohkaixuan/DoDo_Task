@@ -2,18 +2,19 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/storage/authStorage.dart';
+
 import '../api/dioclient.dart';
 import '../controller/petController.dart';
-import '../controller/authController.dart'; // if you have it
+import '../controller/authController.dart';
 
 class PetChatController extends GetxController {
   final DioClient _dio = Get.find<DioClient>();
 
-  // (optional) try to get a real user id
-  final AuthController? _auth =
+  /*final AuthController? _auth =
       Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
   final PetController? _pet =
       Get.isRegistered<PetController>() ? Get.find<PetController>() : null;
+  */
 
   final messages = <ChatMessage>[].obs;
   final isSending = false.obs;
@@ -32,11 +33,12 @@ class PetChatController extends GetxController {
     final text = input.text.trim();
     if (text.isEmpty || isSending.value) return;
 
+    // 先清空输入框 & 先把“自己发的消息”加入（UI 及时反馈）
     input.clear();
     _append(ChatMessage.user(text));
 
-    // pick a user id (fallback keeps API happy for now)
-    final userId =AuthStorage.readUserId() as String;
+    // ✅ 正确地 await 读取 userId，并处理 null/空串
+    String userId = await _safeUserId();
 
     isSending.value = true;
     try {
@@ -45,9 +47,14 @@ class PetChatController extends GetxController {
         data: {
           'user_id': userId,
           'text': text,
-          'use_inworld': true, // or false if you want to force local model
+          'use_inworld': false, // 需要的话自己切换 true/false
         },
-        options: Options(headers: {'Content-Type': 'application/json'}),
+        //later edit!
+        //options: Options(
+        //  headers: {
+        //    'Content-Type': 'application/json',
+        //  },
+        //),
       );
 
       final reply = _extractReply(res.data);
@@ -55,11 +62,8 @@ class PetChatController extends GetxController {
     } on DioException catch (e) {
       final code = e.response?.statusCode;
       final body = e.response?.data;
-
-      // Show a helpful error message instead of generic text
       final msg = _friendlyError(code, body, e.message);
       _append(ChatMessage.system(msg));
-
       debugPrint('[pet-chat] error $code: ${e.message}\nBODY: $body');
     } catch (e) {
       _append(ChatMessage.system('Unexpected error: $e'));
@@ -69,18 +73,35 @@ class PetChatController extends GetxController {
     }
   }
 
+  /// ✅ 统一获取 userId 的地方：优先读本地存储；如果为空再退化到 auth；最后兜底 guest-*
+  Future<String> _safeUserId() async {
+    try {
+      final v = await AuthStorage.readUserId(); // <-- 这里是 Future<String?>
+      if (v != null && v.toString().trim().isNotEmpty) {
+        return v.toString().trim();
+      }
+    } catch (_) {}
+    // 从 AuthController 里拿（如果有的话）
+    //final fromAuth = _auth?.currentUserId;
+    //if (fromAuth != null && fromAuth.toString().trim().isNotEmpty) {
+    //  return fromAuth.toString().trim();
+    //}
+    // 最后兜底：给一个 guest-id，避免后端 422
+    return 'guest-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   String _friendlyError(int? code, dynamic body, String? message) {
-    // 422 from FastAPI → validation failure (wrong body keys, etc.)
     if (code == 422) return 'Hmm, request format invalid (422). I fixed the body—try again.';
     if (code != null) {
-      final details = (body is Map && body['detail'] != null) ? body['detail'].toString() : message;
+      final details =
+          (body is Map && body['detail'] != null) ? body['detail'].toString() : message;
       return 'Error $code: ${details ?? 'server error'}';
     }
     return 'Network error: ${message ?? 'check connection'}';
   }
 
   String _extractReply(dynamic data) {
-    // supports {data:{reply}}, {reply}, or {message}
+    // 兼容 {data:{reply}}, {reply}, {message} 三种
     if (data is Map) {
       final d = data['data'];
       if (d is Map && d['reply'] != null) return d['reply'].toString();

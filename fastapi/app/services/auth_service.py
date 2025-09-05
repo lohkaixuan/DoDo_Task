@@ -101,7 +101,7 @@ async def register_user(email: str, password: str, display_name: Optional[str]) 
         "created_at": datetime.now(timezone.utc),
     }
     res = await db.users.insert_one(doc)
-    return {"id": res.inserted_id, "email": email, "display_name": display_name or ""}
+    return {"id": str(res.inserted_id), "email": email, "display_name": display_name or ""}
 
 
 async def login_email_password(email: str, password: str) -> Dict[str, Any]:
