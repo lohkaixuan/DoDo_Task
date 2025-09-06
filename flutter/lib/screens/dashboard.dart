@@ -163,8 +163,8 @@ class InsightsCard extends StatelessWidget {
           if (c.loading.value) {
             return const ListTile(
               leading: CircularProgressIndicator(),
-              title: Text('分析中…'),
-              subtitle: Text('我正在查看你的任务数据'),
+              title: Text('analysis…'),
+              subtitle: Text('I am checking your tasks and generating insights.'),
             );
           }
           return Column(
@@ -177,7 +177,7 @@ class InsightsCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: c.refreshInsights,
                   icon: const Icon(Icons.auto_awesome),
-                  label: const Text('生成分析'),
+                  label: const Text('Generate Insights'),
                 )
               else ...[
                 Text(c.summary.value),
@@ -188,7 +188,7 @@ class InsightsCard extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: c.refreshInsights,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('重新分析'),
+                      label: const Text('Restart Analysis'),
                     ),
                     if (c.metrics != null)
                       OutlinedButton.icon(
@@ -198,7 +198,7 @@ class InsightsCard extends StatelessWidget {
                               snackPosition: SnackPosition.BOTTOM);
                         },
                         icon: const Icon(Icons.bar_chart),
-                        label: const Text('查看图表（下一版）'),
+                        label: const Text('show graph(next version)'),
                       ),
                   ],
                 ),
