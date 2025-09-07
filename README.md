@@ -1,3 +1,13 @@
+Track -> Student lifestyle 
+Problem statement -> 
+Mental Health Support For Students
+(Mobile Application)
+
+Background:
+University students today face growing mental health challenges such as anxiety and depression often brought on by financial stress, academic pressure and the demands of campus life. 
+The problem:
+Many students don’t seek help because counseling resources are limited or they fear stigma. This challenge will explore creating tools for self care, mental health support and helping students cope with the demands of university life. 
+
 # DoDoTask — Tasks + Virtual Companion
 
 A task management application that integrates a virtual companion to help you get things done!  
