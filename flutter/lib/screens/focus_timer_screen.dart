@@ -42,6 +42,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   Timer? _ticker;
   bool running = false;
 
+  // Preventive cache for remaining focus time when skipping breaks
+  Duration? _focusRemainCache;
+
   // Ongoing local notification state
   static const int _notifId = 777;
   int _lastNotifiedMinute = -1;
@@ -133,6 +136,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
       phase = _Phase.focus;
       remaining = Duration(minutes: pomoMin);
       _lastNotifiedMinute = -1;
+      _focusRemainCache = null;
     });
   }
 
@@ -155,6 +159,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
       _logFocusMinutes(pomoMin);
       pet.addExp(5);
       _snack('Nice!', 'Focus session done (${pomoMin}m).');
+      _focusRemainCache = null; // preventive next session estimate cache
     } else if (phase == _Phase.shortBreak) {
       _snack('Break done', 'Back to focus!');
     } else {
@@ -165,6 +170,34 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     running = false;
     setState(() {});
   }
+
+  //skip button handler
+  void _skip() {
+  _ticker?.cancel();
+  running = false;
+  notifier.cancelId(_notifId); // if not using notification can remove this line
+
+  if (phase == _Phase.focus) {
+    // from Focus jump to Break：clear cache, go to next phase
+    _focusRemainCache = remaining;
+
+    final isLong = longBreakEvery > 0 && sessionCount % longBreakEvery == 0;
+    setState(() {
+      phase = isLong ? _Phase.longBreak : _Phase.shortBreak;
+      remaining = Duration(minutes: isLong ? (shortBreakMin * 2) : shortBreakMin);
+    });
+  } else {
+    // from Break back to Focus：recovery cache；if not use back default focus time
+    final r = _focusRemainCache;
+    setState(() {
+      phase = _Phase.focus;
+      remaining = (r != null && r.inSeconds > 2)
+          ? r
+          : Duration(minutes: pomoMin);
+    });
+  }
+}
+
 
   // Persist focus minutes into the task/subtask
   void _logFocusMinutes(int minutes) {
@@ -290,7 +323,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton.icon(
-                          onPressed: _onPhaseCompleted,
+                          onPressed: _skip,
                           icon: const Icon(Icons.skip_next_outlined),
                           label: const Text('Skip'),
                         ),

@@ -3,7 +3,7 @@ import 'dart:convert';
 
 enum TaskType { singleDay, ranged } // single dueDateTime vs start+due
 enum TaskStatus { notStarted, inProgress, completed, late, archived }
-enum RepeatGranularity { none, hour, day } // for reminder cadence
+enum RepeatGranularity { none, minute, hour, day } // for reminder cadence
 
 // NEW: Overall priority for the task
 enum PriorityLevel { low, medium, high, urgent }

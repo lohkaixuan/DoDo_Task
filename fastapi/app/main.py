@@ -5,11 +5,19 @@ from fastapi.exceptions import RequestValidationError
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+
 from .db import init_db
 from app.routers.pet_ai import router as pet_ai_router
 from .routers import tasks, wellbeing, ai, auth, health_productivity
 from .schemas.response import Envelope
-app = FastAPI(title="DoDoTask Backend")
+app = FastAPI(
+    title="DoDoTask Backend", 
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    )
+
+# Global exception handlers
 @app.exception_handler(HTTPException)
 async def http_exc_handler(_: Request, exc: HTTPException):
     return JSONResponse(
@@ -23,6 +31,8 @@ async def validation_exc_handler(_: Request, exc: RequestValidationError):
         status_code=422,
         content=Envelope(status=422, message="Validation error", data=exc.errors()).model_dump(),
     )
+
+# ---CORS---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

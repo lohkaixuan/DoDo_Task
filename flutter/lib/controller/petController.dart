@@ -27,6 +27,7 @@ class PetController extends GetxController {
     return DateTime(n.year, n.month, n.day);
   }
 
+  // ----- DAILY REFRESH ----- 
   // Call this in app foreground / on tick
   void tickDailyRefresh() {
     final today = _today();

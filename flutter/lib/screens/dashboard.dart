@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:v3/controller/InsightsController.dart';
 
 import '../widgets/pad.dart';
 import '../widgets/pet_header.dart';
@@ -73,6 +74,10 @@ class Dashboard extends StatelessWidget {
               ),
             ),
 
+            // AI Insights
+            const SizedBox(height: 12,),
+            const InsightsCard(),
+
             // Recommended
             const SizedBox(height: 12),
             if (rec.isNotEmpty)
@@ -142,4 +147,66 @@ class _DonutPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DonutPainter old) => old.parts != parts;
+}
+
+class InsightsCard extends StatelessWidget {
+  const InsightsCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Get.put(InsightsController(),permanent: false);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(() {
+          if (c.loading.value) {
+            return const ListTile(
+              leading: CircularProgressIndicator(),
+              title: Text('analysis…'),
+              subtitle: Text('I am checking your tasks and generating insights.'),
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('AI Insights',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              if ((c.summary.value).isEmpty)
+                TextButton.icon(
+                  onPressed: c.refreshInsights,
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Generate Insights'),
+                )
+              else ...[
+                Text(c.summary.value),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: c.refreshInsights,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Restart Analysis'),
+                    ),
+                    if (c.metrics != null)
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          // 你可以跳到一个详情页，展示 charts
+                          Get.snackbar('Metrics', '可在下一版展示图表/明细',
+                              snackPosition: SnackPosition.BOTTOM);
+                        },
+                        icon: const Icon(Icons.bar_chart),
+                        label: const Text('show graph(next version)'),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          );
+        }),
+      ),
+    );
+  }
 }
