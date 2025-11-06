@@ -7,11 +7,12 @@ python-dotenv==1.0.1
 pydantic==2.8.2
 pydantic-settings==2.4.0
 
-# MongoDB / ODM
-beanie==1.26.0
-motor==3.5.1
+# MongoDB (async + ODM)
+motor[srv]==3.5.1
 pymongo[srv]==4.8.0
+beanie==1.26.0
 dnspython==2.6.1
+certifi==2024.8.30   # <-- needed for TLS/CA bundle on Render
 
 # Auth & security
 passlib[bcrypt]==1.7.4
@@ -24,6 +25,6 @@ python-multipart==0.0.9
 # HTTP client
 httpx==0.28.1
 
-# AI / model hub
+# AI / model hub (optional)
 huggingface_hub>=0.23,<1.0
 vaderSentiment==3.3.2
