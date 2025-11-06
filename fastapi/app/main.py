@@ -54,3 +54,7 @@ app.include_router(health_productivity.router)  # health and productivity endpoi
 @app.get("/")
 async def root():
     return {"message": "Backend is alive 🎉"}
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}

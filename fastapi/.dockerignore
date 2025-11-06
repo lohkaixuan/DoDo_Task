@@ -1,0 +1,22 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+.venv*/
+venv*/
+.env
+# VCS
+.git
+.gitignore
+.gitattributes
+# Editors
+.vscode/
+.idea/
+# Other
+node_modules/
+dist/
+build/
+*.log

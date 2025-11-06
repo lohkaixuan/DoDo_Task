@@ -1,0 +1,48 @@
+# ---- Base image
+FROM python:3.11-slim AS base
+# If you *must* use 3.13, change to python:3.13-slim (ensure deps compatible)
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+# ---- System deps (psycopg/mongo builds, uvicorn, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- Workdir
+WORKDIR /app
+
+# ---- Install Python deps early for better caching
+# Your repo shows `requirement.txt` (singular). If you rename to `requirements.txt`,
+# also update the line below.
+COPY requirement.txt ./requirement.txt
+RUN pip install -r requirement.txt
+
+# ---- Copy application code
+COPY app ./app
+COPY fastapi ./fastapi
+COPY config.py db.py deps.py main.py ./   # if these exist at repo root; harmless if missing
+COPY .env ./.env                          # optional: if you need it inside the container
+
+# ---- Non-root for security
+RUN useradd -m appuser
+USER appuser
+
+# ---- Render provides $PORT. We'll default to 8000 for local runs.
+ENV PORT=8000 \
+    WEB_CONCURRENCY=2
+
+# ---- Expose for local (Render ignores EXPOSE but fine locally)
+EXPOSE 8000
+
+# ---- Start with Gunicorn + UvicornWorker
+# Import path points to "app/main.py" -> "app.main:app"
+CMD gunicorn app.main:app \
+    -k uvicorn.workers.UvicornWorker \
+    -w ${WEB_CONCURRENCY} \
+    -b 0.0.0.0:${PORT} \
+    --log-level info
