@@ -59,6 +59,7 @@ class ApiService {
   }
 
   Future<RegisterResponse> register(String email, String password, String displayName) async {
+    print('ApiService.register called with email: $email, password: $password');
     try {
       final response = await _dioClient.dio.post('/auth/register', data: {
         'email': email,
