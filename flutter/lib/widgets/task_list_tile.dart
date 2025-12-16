@@ -64,47 +64,63 @@ class TaskListTile extends StatelessWidget {
     final radius = BorderRadius.circular(14);
 
     return Dismissible(
-      key: ValueKey(task.id),
+      key: Key(task.id),
       direction: DismissDirection.horizontal,
       confirmDismiss: (dir) async {
+        
+        // 👉 逻辑 1：从左向右滑 (StartToEnd) -> 完成/撤销
         if (dir == DismissDirection.startToEnd) {
-          // complete or undo
           _toggleComplete(tc);
-          return false; // keep the tile (we handled it)
-        } else {
+          return false; // 不删除组件，只改状态
+        } 
+        
+        // 👉 逻辑 2：从右向左滑 (EndToStart) -> 删除
+        else {
           final ok = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Delete task?'),
                   content: Text('Remove “${task.title}”?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete')),
                   ],
                 ),
               ) ??
               false;
+
           if (ok) {
-            try {
-              tc.notifier.cancelForTask(task.id);
-            } catch (_) {}
-            tc.tasks.removeWhere((x) => x.id == task.id);
-            tc.update();
+            // ✅✅✅ 关键修复！直接调用 Controller 的删除方法！
+            // 这会自动触发：1.本地删除 2.ID清洗 3.发送API请求
+            tc.removeById(task.id); 
           }
           return ok;
         }
       },
+      
+      // 🎨 视觉 1：从左向右滑的背景 (StartToEnd) -> 完成 (绿色/蓝色)
       background: _swipeBg(
-        alignRight: false,
+        alignRight: false, // 图标在左边
         label: _isDone ? 'Undo' : 'Complete',
         icon: _isDone ? Icons.undo_rounded : Icons.check_circle,
         color: _isDone ? Colors.blue : Colors.green,
       ),
-      secondaryBackground:
-          _swipeBg(alignRight: true, label: 'Delete', icon: Icons.delete),
+      
+      // 🎨 视觉 2：从右向左滑的背景 (EndToStart) -> 删除 (红色)
+      secondaryBackground: _swipeBg(
+        alignRight: true, // 图标在右边
+        label: 'Delete',
+        icon: Icons.delete,
+        color: Colors.red,
+      ),
 
       child: Opacity(
-        opacity: _isDone ? 0.6 : 1.0, // dim when done
+        // ... 原封不动 ...
+        opacity: _isDone ? 0.6 : 1.0, 
         child: Card(
           shape: RoundedRectangleBorder(borderRadius: radius),
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -137,11 +153,8 @@ class TaskListTile extends StatelessWidget {
                           _toggleComplete(tc);
                           break;
                         case 'delete':
-                          try {
-                            tc.notifier.cancelForTask(task.id);
-                          } catch (_) {}
-                          tc.tasks.removeWhere((x) => x.id == task.id);
-                          tc.update();
+                          // 这里的菜单点击删除也要改！
+                          tc.removeById(task.id); // ✅ 换成这个
                           break;
                       }
                     },

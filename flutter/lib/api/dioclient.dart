@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
+import '../storage/authStorage.dart';
 
 class DioClient {
   final Dio _dio;
@@ -19,7 +20,15 @@ class DioClient {
         ) {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        // Token handling removed for now
+        // 👇👇👇 必须把这段加回来！这是身份证明！ 👇👇👇
+        try {
+          final token = await AuthStorage.readToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token'; // 👈 关键！
+          }
+        } catch (e) {
+          print("Error reading token: $e");
+        }
         return handler.next(options);
       },
       onError: (DioException e, handler) {

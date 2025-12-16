@@ -7,6 +7,7 @@ import '../models/task.dart';
 import '../services/notification_service.dart';
 import 'petController.dart';
 import '../api/dioclient.dart'; 
+import '../storage/authStorage.dart';
 
 class TaskController extends GetxController {
   final tasks = <Task>[].obs;
@@ -19,11 +20,74 @@ class TaskController extends GetxController {
   TaskController(this.notifier, this.pet);
 
   // =========================================================
+  // 👇👇👇 在这里插入 onInit 和 fetchTasks (最上面) 👇👇👇
+  // =========================================================
+
+  @override
+  void onInit() {
+    super.onInit(); // 👈 这一行不能少，它是启动引擎的钥匙
+    fetchTasks();   // 👈 一启动就去拉数据
+  }
+
+  Future<void> fetchTasks() async {
+    try {
+      print("📥 正在从云端拉取数据...");
+
+      // 1. 先从保险柜里拿出邮箱
+      String? savedEmail = await AuthStorage.readUserEmail();
+      // 如果还没登录或者没邮箱，就没法拉取，直接返回
+      if (savedEmail == null || savedEmail.isEmpty) {
+        print("⚠️ 未找到用户邮箱，跳过拉取");
+        return;
+      }
+
+      print("🔍 目标用户: $savedEmail");
+      
+      // 2. 关键修改：把邮箱拼接到 URL 后面！
+      // 变成 /tasks/luguo@gmail.com
+      final response = await _dioClient.dio.get('/tasks/$savedEmail');
+      
+      // ... 下面的代码保持不变 ...
+      print("🔍 后端返回的原始数据: ${response.data}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        List<dynamic> listData = [];
+
+        if (response.data is List) {
+          listData = response.data;
+        } else if (response.data is Map && response.data['data'] is List) {
+          listData = response.data['data'];
+        } else {
+          return;
+        }
+
+        print("☁️ 成功提取到 ${listData.length} 个任务");
+
+        final List<Task> loadedTasks = listData.map((json) {
+          if (json['flutter_id'] != null) {
+            json['id'] = json['flutter_id'];
+          }
+          return Task.fromJson(json);
+        }).toList();
+
+        tasks.assignAll(loadedTasks);
+        
+        // 记得恢复通知
+        for (var t in loadedTasks) {
+          _scheduleAllNotifications(t);
+        }
+      }
+    } catch (e) {
+      print("⚠️ 拉取失败 (Fetch failed): $e");
+    }
+  }
+
+  // =========================================================
   // CRUD Methods (With Cloud Sync)
   // =========================================================
   
   Future<void> addTask(Task t) async {
-    // 1. 本地乐观更新
+    // 1. 本地更新
     tasks.add(t);
     _scheduleAllNotifications(t);
     update();
@@ -31,13 +95,29 @@ class TaskController extends GetxController {
     // 2. 云端同步
     try {
       final body = t.toJson();
-      body['flutter_id'] = t.id; 
-      body['user_email'] = "yap@gmail.com"; // 暂时硬编码
+      
+      // 🧼 1. 只发 flutter_id，绝对不要发 'id' !
+      // 这里的 id 是给 MongoDB 内部用的，发了就会报错
+      body.remove('id'); 
+      final cleanId = t.id.replaceAll(RegExp(r'[\[\]#]'), '');
+      body['flutter_id'] = cleanId;
 
-      final response = await _dioClient.dio.post(
-        '/tasks',
-        data: body,
-      );
+      // 🟢 2. 邮箱
+      String? savedEmail = await AuthStorage.readUserEmail();
+      body['user_email'] = savedEmail ?? "guest@dodo.com";
+
+      // 🟢 3. 枚举：直接用 Dart 的原名 (驼峰)，因为后端要的就是 singleDay/notStarted
+      body['type'] = t.type.name;     // e.g. "singleDay" (✅ 后端喜欢这个)
+      body['status'] = t.status.name; // e.g. "notStarted" (✅ 后端喜欢这个)
+      body['priority'] = t.priority.name;
+
+      // ⚠️ 4. 如果 notify 依然报错，请把下面这行取消注释先删掉它
+      // body.remove('notify'); 
+      // body.remove('focusPrefs');
+
+      print("📤 Sending Body: $body"); 
+
+      final response = await _dioClient.dio.post('/tasks', data: body);
       print("☁️ Task synced! Server response: ${response.statusCode}");
     } on DioException catch (e) {
       print("⚠️ Sync failed: ${e.response?.statusCode} - ${e.message}");
@@ -59,11 +139,23 @@ class TaskController extends GetxController {
       // 2. 云端同步
       try {
         final body = after.toJson();
-        body['flutter_id'] = after.id;
-        body['user_email'] = "yap@gmail.com";
+        
+        // 🧼 1. 清洗 ID 并不发 id 字段
+        body.remove('id'); 
+        final cleanId = after.id.replaceAll(RegExp(r'[\[\]#]'), '');
+        body['flutter_id'] = cleanId;
+
+        // 🟢 2. 邮箱
+        String? savedEmail = await AuthStorage.readUserEmail();
+        body['user_email'] = savedEmail ?? "guest@dodo.com";
+
+        // 🟢 3. 枚举：直接用 Dart 原名
+        body['type'] = after.type.name;
+        body['status'] = after.status.name;
+        body['priority'] = after.priority.name;
 
         await _dioClient.dio.put(
-          '/tasks/${after.id}', 
+          '/tasks/$cleanId', 
           data: body,
         );
         print("☁️ Task updated in cloud");
@@ -74,14 +166,25 @@ class TaskController extends GetxController {
   }
 
   void removeById(String id) async {
+    // 1. 本地删除 (UI 立即反馈)
+
+    print("🚀 removeById 正在运行！原始 ID: $id");
+
+    // 1. 本地删除 (UI 立即消失)
     notifier.cancelForTask(id);
     tasks.removeWhere((x) => x.id == id);
     update();
 
-    // 云端删除
+    // 2. 云端删除
     try {
-      await _dioClient.dio.delete('/tasks/$id');
-      print("☁️ Deleted task $id from cloud");
+      // 🧼 关键修复：和存的时候保持一致，把 ID 洗干净！
+      final cleanId = id.replaceAll(RegExp(r'[\[\]#]'), '');
+      
+      print("🗑️ Deleting task: $cleanId"); // 打印一下确认 ID 是干净的
+
+      await _dioClient.dio.delete('/tasks/$cleanId');
+      
+      print("☁️ Deleted task $cleanId from cloud");
     } catch (e) {
       print("⚠️ Delete failed: $e");
     }
@@ -315,6 +418,7 @@ class TaskController extends GetxController {
     candidates.sort((a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
     return candidates.take(max).toList();
   }
+
 
   // =========================================================
   // Demo Data (Fixes setting.dart error)
