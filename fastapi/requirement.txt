@@ -1,7 +1,7 @@
 # Web framework & server
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-
+gunicorn==23.0.0
 # Config / typing
 python-dotenv==1.0.1
 pydantic==2.8.2
