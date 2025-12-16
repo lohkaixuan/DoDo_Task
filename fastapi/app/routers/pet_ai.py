@@ -1,7 +1,4 @@
-
-# =============================
 # app/routers/pet_ai.py
-# =============================
 from __future__ import annotations
 import os
 from datetime import datetime
@@ -12,12 +9,15 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.schemas.response import Envelope
-from fastapi.app.utils.response_utils import ok, created
+# 👇👇👇 之前这里写错了，把 fastapi. 去掉！ 👇👇👇
+from app.utils.response_utils import ok, created 
 from app.logic.risk_mongo import compute_stress_score
-from fastapi.app.services.pet_service_ai import HuggingFaceClient, InworldClient
+from app.services.pet_service_ai import HuggingFaceClient, InworldClient
 
 router = APIRouter(prefix="/ai/pet", tags=["ai-pet"])
 
+# ... 下面的代码保持不变 ...
+# 为了保险，你可以把下面的也复制进去，或者只改上面那行 import
 
 class ChatIn(BaseModel):
     user_id: str
@@ -28,7 +28,7 @@ class ChatIn(BaseModel):
 
 class ChatOut(BaseModel):
     reply: str
-    provider: Literal["inworld", "huggingface", "groq"]  # ← 增加 "groq"
+    provider: Literal["inworld", "huggingface", "groq"]
     sentiment: Dict[str, Any] | None = None
     risk: Dict[str, Any] | None = None
     ts: datetime
@@ -38,11 +38,11 @@ class ChatOut(BaseModel):
 async def chat(body: ChatIn, db=Depends(get_db)):
     hf = HuggingFaceClient()
 
-    # 1) 本地情绪 + 风险（防空）
+    # 1) 本地情绪 + 风险
     senti = await hf.analyze_sentiment(body.text)
     risk = await compute_stress_score(db, body.user_id) or {"score": 0, "signals": []}
 
-    # 2) persona 在路由层组装
+    # 2) Persona
     persona = (
         "You are 'DoDo', a gentle, playful virtual pet companion. "
         "Speak in short, warm sentences with emojis occasionally. "
@@ -55,7 +55,7 @@ async def chat(body: ChatIn, db=Depends(get_db)):
     )
     prompt = f"{persona}\nUser: {body.text}\nPet:"
 
-    # 3) 优先 Inworld（可选），否则走 Groq
+    # 3) 优先 Inworld，否则 Groq
     reply = ""
     provider: Literal["inworld", "huggingface", "groq"] = "groq"
 
@@ -70,13 +70,13 @@ async def chat(body: ChatIn, db=Depends(get_db)):
             )
             provider = "inworld"
         except Exception:
-            reply = await hf.generate_reply(prompt)  # ← 会用 Groq
+            reply = await hf.generate_reply(prompt)
             provider = "groq"
     else:
-        reply = await hf.generate_reply(prompt)      # ← 会用 Groq
+        reply = await hf.generate_reply(prompt)
         provider = "groq"
 
-    # 4) 事件日志
+    # 4) 日志
     await db.events.insert_one(
         {
             "event_id": os.urandom(8).hex(),
