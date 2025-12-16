@@ -12,9 +12,9 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.schemas.response import Envelope
-from app.utils.response import ok, created
+from fastapi.app.utils.response_utils import ok, created
 from app.logic.risk_mongo import compute_stress_score
-from app.services.pet_ai import HuggingFaceClient, InworldClient
+from fastapi.app.services.pet_service_ai import HuggingFaceClient, InworldClient
 
 router = APIRouter(prefix="/ai/pet", tags=["ai-pet"])
 

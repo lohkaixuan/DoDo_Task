@@ -1,90 +1,41 @@
-# app/routers/tasks.py
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Optional, Literal
-from datetime import datetime, date
-import uuid
-from app.db import get_db
-from app.schemas.response import Envelope
-from app.utils.response import ok, created
+from fastapi import APIRouter, HTTPException, Body
+from typing import List
+from app.models.models import Task
 
-router = APIRouter(prefix="/tasks", tags=["tasks"])
+router = APIRouter()
 
-class TaskIn(BaseModel):
-    user_id: str
-    title: str
-    category: Literal["Academic","Personal","Private"]
-    priority: int = 2
-    estimated_time: Optional[int] = None
-    due_date: Optional[date] = None
+# 1. 创建任务 (Sync from Flutter)
+@router.post("/tasks", tags=["Tasks"], response_model=Task)
+async def create_task(task: Task):
+    # 前端传来的 JSON 会自动映射成 Task 对象
+    # 如果数据库里已经有了这个 flutter_id，我们可以选择更新或者忽略
+    # 这里演示直接插入
+    await task.insert()
+    return task
 
-@router.post("", status_code=201, response_model=Envelope[dict])
-async def create_task(body: TaskIn, db = Depends(get_db)):
-    task_id = str(uuid.uuid4())
-    doc = {
-        "task_id": task_id,
-        "user_id": body.user_id,
-        "title": body.title,
-        "category": body.category,
-        "priority": body.priority,
-        "estimated_time": body.estimated_time,
-        "due_date": body.due_date.isoformat() if body.due_date else None,
-        "status": "pending",
-        "completed_at": None,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    await db.tasks.insert_one(doc)
-    return created(doc, message="Task created")
+# 2. 获取用户的所有任务
+@router.get("/tasks/{user_email}", tags=["Tasks"], response_model=List[Task])
+async def get_user_tasks(user_email: str):
+    tasks = await Task.find(Task.user_email == user_email).to_list()
+    return tasks
 
-@router.post("/{task_id}/start", response_model=Envelope[dict])
-async def start_task(task_id: str, user_id: str, db = Depends(get_db)):
-    task = await db.tasks.find_one({"task_id": task_id, "user_id": user_id})
-    if not task:
-        raise HTTPException(404, "Task not found")
-    await db.events.insert_one({
-        "event_id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "type": "task_start",
-        "ts": datetime.utcnow(),
-        "context": {"task_id": task_id}
-    })
-    return ok({"started": True, "task_id": task_id}, message="Task started")
+# 3. 更新任务 (当你在 Flutter 修改了任务)
+@router.put("/tasks/{flutter_id}", tags=["Tasks"])
+async def update_task(flutter_id: str, task_data: Task):
+    # 找到原来的任务
+    existing_task = await Task.find_one(Task.flutter_id == flutter_id)
+    if not existing_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # 更新所有字段
+    await existing_task.update({"$set": task_data.dict(exclude={"id"})})
+    return {"message": "Updated"}
 
-@router.patch("/{task_id}/complete", response_model=Envelope[dict])
-async def complete_task(task_id: str, user_id: str, db = Depends(get_db)):
-    task = await db.tasks.find_one({"task_id": task_id, "user_id": user_id})
-    if not task:
-        raise HTTPException(404, "Task not found")
-
-    now = datetime.utcnow()
-    is_overdue = False
-    if task.get("due_date"):
-        try:
-            due = datetime.fromisoformat(task["due_date"])
-            is_overdue = now.date() > due.date()
-        except Exception:
-            pass
-
-    await db.tasks.update_one(
-        {"task_id": task_id, "user_id": user_id},
-        {"$set": {"status": "done", "completed_at": now.isoformat()}}
-    )
-
-    await db.events.insert_one({
-        "event_id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "type": "task_complete",
-        "ts": now,
-        "context": {"task_id": task_id}
-    })
-
-    if is_overdue:
-        await db.events.insert_one({
-            "event_id": str(uuid.uuid4()),
-            "user_id": user_id,
-            "type": "overdue",
-            "ts": now,
-            "context": {"task_id": task_id}
-        })
-
-    return ok({"completed": True, "task_id": task_id, "overdue": is_overdue}, message="Task completed")
+# 4. 删除任务
+@router.delete("/tasks/{flutter_id}", tags=["Tasks"])
+async def delete_task(flutter_id: str):
+    existing_task = await Task.find_one(Task.flutter_id == flutter_id)
+    if existing_task:
+        await existing_task.delete()
+        return {"message": "Deleted"}
+    raise HTTPException(status_code=404, detail="Task not found")

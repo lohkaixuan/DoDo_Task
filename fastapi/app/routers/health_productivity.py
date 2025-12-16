@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from app.db import get_db
 from app.schemas.response import Envelope
-from app.utils.response import ok, created
+from fastapi.app.utils.response_utils import ok, created
 from app.logic.risk_mongo import compute_stress_score, recommend_new_due_date, choose_pet_reaction
 
 router = APIRouter(prefix="/wellbeing", tags=["wellbeing"])
