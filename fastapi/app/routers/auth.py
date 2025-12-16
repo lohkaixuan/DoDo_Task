@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 from app.schemas.response import Envelope
-from fastapi.app.utils.response_utils import ok, created
+from app.utils.response_utils import ok, created
 from app.services.auth_service import (
     register_user,
     login_email_password,
