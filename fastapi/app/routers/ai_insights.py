@@ -6,7 +6,7 @@ from datetime import datetime, time
 import os
 
 from app.schemas.response import Envelope
-from app.utils.response import ok
+from fastapi.app.utils.response_utils import ok
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 

@@ -7,7 +7,7 @@ class DioClient {
   DioClient()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: "https://dodo-task.onrender.com/".trim(), // ✅ Change to your API URL
+            baseUrl: "https://dodo-task-1.onrender.com".trim(), // ✅ Change to your API URL
             connectTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 10),
             responseType: ResponseType.json, 
@@ -23,10 +23,7 @@ class DioClient {
         return handler.next(options);
       },
       onError: (DioException e, handler) {
-        // if (e.response?.statusCode == 401) {
-        //   // 🔹 Redirect to login if unauthorized
-        //   Get.offAllNamed('/login');
-        // }
+        print("Dio Error: ${e.message}"); // 打印一下错误方便调试
         return handler.next(e);
       },
     ));
