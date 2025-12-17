@@ -22,7 +22,7 @@ class AuthController extends GetxController {
 
       if (res.message.contains("success")) {
         Get.snackbar('Login', 'Login successful');
-        await AuthStorage.save(res.token, res.id);
+        await AuthStorage.save(res.token, res.id,res.email);
         Get.offAllNamed('/home');
       } else {
         Get.snackbar('Login failed', 'Server rejected the credentials');

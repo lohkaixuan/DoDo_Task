@@ -10,6 +10,8 @@ from .db import init_db
 from app.routers.pet_ai import router as pet_ai_router
 from .routers import tasks, wellbeing, ai, auth, health_productivity
 from .schemas.response import Envelope
+from app.routers import balance
+
 app = FastAPI(
     title="DoDoTask Backend", 
     version="0.1.0",
@@ -51,6 +53,7 @@ app.include_router(wellbeing.router)  # your analytics & risk endpoints
 app.include_router(ai.router)         # chat with AI
 app.include_router(auth.router)         # chat with AI
 app.include_router(health_productivity.router)  # health and productivity endpoints
+app.include_router(balance.router)    # balance and spend coins endpoints
 @app.get("/")
 async def root():
     return {"message": "Backend is alive 🎉"}
