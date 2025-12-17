@@ -22,40 +22,54 @@ async def get_user_tasks(user_email: str):
 # 3. 更新任务 (当你在 Flutter 修改了任务)
 @router.put("/tasks/{flutter_id}", tags=["Tasks"])
 async def update_task(flutter_id: str, task_data: Task):
-    # 找到原来的任务
+    # 1. 找原来的任务
     existing_task = await Task.find_one(Task.flutter_id == flutter_id)
     if not existing_task:
+        print(f"❌ Task not found: {flutter_id}") # Debug Log
         raise HTTPException(status_code=404, detail="Task not found")
-    
-    # 情况 A: 刚刚完成 (Not Complete -> Complete) 
+
+    # Debug Logs: 打印出来看看状态到底是个啥
+    print(f"🔍 Checking Task: {existing_task.title}")
+    print(f"   --- Old Status: {existing_task.status}")
+    print(f"   --- New Status: {task_data.status}")
+
+    # 情况 A: 刚刚完成
     is_just_completed = (
         task_data.status == "completed" and 
         existing_task.status != "completed"
     )
     
-    # 情况 B: 刚刚取消 (Complete -> Not Complete) 
+    # 情况 B: 刚刚取消
     is_just_uncompleted = (
         existing_task.status == "completed" and
         task_data.status != "completed"
     )
-
-    # 更新所有字段
-    await existing_task.update({"$set": task_data.dict(exclude={"id"})})
-    # 3. 💰 算账时间
-    coins_change = 0
     
+    print(f"   --- Is Just Completed? {is_just_completed}")
+
+    # 更新数据库
+    await existing_task.update({"$set": task_data.dict(exclude={"id"})})
+    
+    # 💰 算账
+    coins_change = 0
     if is_just_completed:
         coins_change = 10
     elif is_just_uncompleted:
-        coins_change = -10 # 👈 扣钱！
+        coins_change = -10
 
-    # 只有当钱发生变化时才去骚扰 User 表
+    print(f"   --- Coins Change: {coins_change}")
+
     if coins_change != 0:
+        # 找用户
+        print(f"   --- Looking for user email: {existing_task.user_email}")
         user = await User.find_one(User.email == existing_task.user_email)
+        
         if user:
             user.coins += coins_change
             await user.save()
-            print(f"⚖️ Balance updated: {coins_change} coins. Total: {user.coins}")
+            print(f"✅ User found! New Balance: {user.coins}")
+        else:
+            print(f"❌ User NOT found for email: {existing_task.user_email}")
 
     return {
         "message": "Updated", 
