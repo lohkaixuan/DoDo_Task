@@ -5,7 +5,7 @@ from pydantic import BaseModel
 # 👇👇👇 关键一步：直接从隔壁房间把 User 模型抓过来用！
 from app.models.user import User 
 # 假设你的获取当前用户逻辑在这里
-from app.auth.auth import get_current_user 
+from app.deps import get_current_user 
 
 router = APIRouter()
 
