@@ -7,6 +7,7 @@ import '../widgets/pet_header.dart';
 import '../widgets/task_list_tile.dart';
 import '../controller/taskController.dart';
 import '../controller/petController.dart';
+import '../widgets/coin_badge.dart';
 import '../models/task.dart';
 
 class Dashboard extends StatelessWidget {
@@ -17,8 +18,23 @@ class Dashboard extends StatelessWidget {
     final tc = Get.find<TaskController>();
     final pet = Get.find<PetController>();
 
-    return SafeArea(
-      child: Obx(() {
+    // ✅ 2. 改成 Scaffold 结构
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Dashboard',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // ✅ 3. 金币显示在这里！
+        actions: const [
+          CoinBadge(),
+          SizedBox(width: 16),
+        ],
+      ),
+      body: Obx(() {
         final all = tc.tasks;
         final now = DateTime.now();
 
@@ -30,16 +46,15 @@ class Dashboard extends StatelessWidget {
 
         double pct(int v) => v / total;
 
-        // top recommendations (auto updates after complete/edit)
         final rec = tc.recommended(max: 5);
 
         return ListView(
           padding: padAll(context, h: 16, v: 16),
           children: [
-            // Pet header (uses sprite from PetController)
+            // Pet header
             PetHeader(imageOverride: pet.currentSprite),
 
-            // Donut
+            // Donut Card
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -95,6 +110,9 @@ class Dashboard extends StatelessWidget {
                   ),
                 ),
               ),
+              
+            // ✅ 4. 底部留白，防止被底部的 Floating Pet Head 挡住
+            const SizedBox(height: 100), 
           ],
         );
       }),
@@ -116,6 +134,7 @@ class Dashboard extends StatelessWidget {
   }
 }
 
+// 👇 下面的类原封不动，负责画图和 AI 总结
 class _DonutPainter extends CustomPainter {
   _DonutPainter(this.parts);
   final List<(double, Color)> parts;
@@ -154,7 +173,8 @@ class InsightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Get.put(InsightsController(),permanent: false);
+    // 使用 permanent: false 确保不会导致内存泄漏
+    final c = Get.put(InsightsController(), permanent: false);
 
     return Card(
       child: Padding(
@@ -163,7 +183,7 @@ class InsightsCard extends StatelessWidget {
           if (c.loading.value) {
             return const ListTile(
               leading: CircularProgressIndicator(),
-              title: Text('analysis…'),
+              title: Text('Analysis…'),
               subtitle: Text('I am checking your tasks and generating insights.'),
             );
           }
@@ -193,12 +213,11 @@ class InsightsCard extends StatelessWidget {
                     if (c.metrics != null)
                       OutlinedButton.icon(
                         onPressed: () {
-                          // 你可以跳到一个详情页，展示 charts
                           Get.snackbar('Metrics', '可在下一版展示图表/明细',
                               snackPosition: SnackPosition.BOTTOM);
                         },
                         icon: const Icon(Icons.bar_chart),
-                        label: const Text('show graph(next version)'),
+                        label: const Text('Show graph (Next Ver)'),
                       ),
                   ],
                 ),

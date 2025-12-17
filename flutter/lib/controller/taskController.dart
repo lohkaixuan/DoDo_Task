@@ -8,6 +8,8 @@ import '../services/notification_service.dart';
 import 'petController.dart';
 import '../api/dioclient.dart'; 
 import '../storage/authStorage.dart';
+import '../controller/walletController.dart';
+
 
 class TaskController extends GetxController {
   final tasks = <Task>[].obs;
@@ -16,6 +18,7 @@ class TaskController extends GetxController {
   
   // 💉 获取 DioClient
   final DioClient _dioClient = Get.find<DioClient>();
+  final WalletController wallet = Get.put(WalletController());
 
   TaskController(this.notifier, this.pet);
 
@@ -196,11 +199,16 @@ class TaskController extends GetxController {
     final idx = tasks.indexWhere((x) => x.id == id);
     if (idx >= 0) {
       final before = tasks[idx];
+      if (before.status == TaskStatus.completed) return;
+
       final now = DateTime.now();
       final after = before.copyWith(status: TaskStatus.completed, updatedAt: now);
       
       // 直接调用 updateTask 以触发云端同步
       updateTask(after); 
+
+      // 这里的数字最好和后端 update_task 里的 reward_coins 保持一致
+      wallet.addCoinsLocally(10);
 
       // 额外的宠物逻辑
       notifier.cancelForTask(id);
