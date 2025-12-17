@@ -10,7 +10,7 @@ from pydantic import ValidationError
 # 👇 引用你的 User 模型
 from app.models.user import User
 # 👇 引用你的配置 (假设你的密钥在这个文件里)
-from app.utils.config import settings 
+from app.config import settings 
 
 # 这是定义 Token 从哪里来 (通常是 Authorization: Bearer <token>)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
