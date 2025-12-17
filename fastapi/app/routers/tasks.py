@@ -27,9 +27,40 @@ async def update_task(flutter_id: str, task_data: Task):
     if not existing_task:
         raise HTTPException(status_code=404, detail="Task not found")
     
+    # 情况 A: 刚刚完成 (Not Complete -> Complete) 
+    is_just_completed = (
+        task_data.status == "completed" and 
+        existing_task.status != "completed"
+    )
+    
+    # 情况 B: 刚刚取消 (Complete -> Not Complete) 
+    is_just_uncompleted = (
+        existing_task.status == "completed" and
+        task_data.status != "completed"
+    )
+
     # 更新所有字段
     await existing_task.update({"$set": task_data.dict(exclude={"id"})})
-    return {"message": "Updated"}
+    # 3. 💰 算账时间
+    coins_change = 0
+    
+    if is_just_completed:
+        coins_change = 10
+    elif is_just_uncompleted:
+        coins_change = -10 # 👈 扣钱！
+
+    # 只有当钱发生变化时才去骚扰 User 表
+    if coins_change != 0:
+        user = await User.find_one(User.email == existing_task.user_email)
+        if user:
+            user.coins += coins_change
+            await user.save()
+            print(f"⚖️ Balance updated: {coins_change} coins. Total: {user.coins}")
+
+    return {
+        "message": "Updated", 
+        "coins_earned": coins_change
+    }
 
 # 4. 删除任务
 @router.delete("/tasks/{flutter_id}", tags=["Tasks"])

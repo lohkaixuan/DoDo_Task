@@ -6,16 +6,15 @@ import 'package:dio/dio.dart';
 import '../models/task.dart';
 import '../services/notification_service.dart';
 import 'petController.dart';
-import '../api/dioclient.dart'; 
+import '../api/dioclient.dart';
 import '../storage/authStorage.dart';
 import '../controller/walletController.dart';
-
 
 class TaskController extends GetxController {
   final tasks = <Task>[].obs;
   final NotificationService notifier;
   final PetController pet;
-  
+
   // 💉 获取 DioClient
   final DioClient _dioClient = Get.find<DioClient>();
   final WalletController wallet = Get.put(WalletController());
@@ -29,7 +28,7 @@ class TaskController extends GetxController {
   @override
   void onInit() {
     super.onInit(); // 👈 这一行不能少，它是启动引擎的钥匙
-    fetchTasks();   // 👈 一启动就去拉数据
+    fetchTasks(); // 👈 一启动就去拉数据
   }
 
   Future<void> fetchTasks() async {
@@ -45,11 +44,11 @@ class TaskController extends GetxController {
       }
 
       print("🔍 目标用户: $savedEmail");
-      
+
       // 2. 关键修改：把邮箱拼接到 URL 后面！
       // 变成 /tasks/luguo@gmail.com
       final response = await _dioClient.dio.get('/tasks/$savedEmail');
-      
+
       // ... 下面的代码保持不变 ...
       print("🔍 后端返回的原始数据: ${response.data}");
 
@@ -74,7 +73,7 @@ class TaskController extends GetxController {
         }).toList();
 
         tasks.assignAll(loadedTasks);
-        
+
         // 记得恢复通知
         for (var t in loadedTasks) {
           _scheduleAllNotifications(t);
@@ -88,7 +87,7 @@ class TaskController extends GetxController {
   // =========================================================
   // CRUD Methods (With Cloud Sync)
   // =========================================================
-  
+
   Future<void> addTask(Task t) async {
     // 1. 本地更新
     tasks.add(t);
@@ -98,10 +97,10 @@ class TaskController extends GetxController {
     // 2. 云端同步
     try {
       final body = t.toJson();
-      
+
       // 🧼 1. 只发 flutter_id，绝对不要发 'id' !
       // 这里的 id 是给 MongoDB 内部用的，发了就会报错
-      body.remove('id'); 
+      body.remove('id');
       final cleanId = t.id.replaceAll(RegExp(r'[\[\]#]'), '');
       body['flutter_id'] = cleanId;
 
@@ -110,15 +109,15 @@ class TaskController extends GetxController {
       body['user_email'] = savedEmail ?? "guest@dodo.com";
 
       // 🟢 3. 枚举：直接用 Dart 的原名 (驼峰)，因为后端要的就是 singleDay/notStarted
-      body['type'] = t.type.name;     // e.g. "singleDay" (✅ 后端喜欢这个)
+      body['type'] = t.type.name; // e.g. "singleDay" (✅ 后端喜欢这个)
       body['status'] = t.status.name; // e.g. "notStarted" (✅ 后端喜欢这个)
       body['priority'] = t.priority.name;
 
       // ⚠️ 4. 如果 notify 依然报错，请把下面这行取消注释先删掉它
-      // body.remove('notify'); 
+      // body.remove('notify');
       // body.remove('focusPrefs');
 
-      print("📤 Sending Body: $body"); 
+      print("📤 Sending Body: $body");
 
       final response = await _dioClient.dio.post('/tasks', data: body);
       print("☁️ Task synced! Server response: ${response.statusCode}");
@@ -134,7 +133,7 @@ class TaskController extends GetxController {
       final before = tasks[idx];
       final after = t.copyWith(updatedAt: DateTime.now());
       tasks[idx] = after;
-      
+
       _scheduleAllNotifications(after);
       _petReactOnStatus(before, after);
       update();
@@ -142,9 +141,9 @@ class TaskController extends GetxController {
       // 2. 云端同步
       try {
         final body = after.toJson();
-        
+
         // 🧼 1. 清洗 ID 并不发 id 字段
-        body.remove('id'); 
+        body.remove('id');
         final cleanId = after.id.replaceAll(RegExp(r'[\[\]#]'), '');
         body['flutter_id'] = cleanId;
 
@@ -158,7 +157,7 @@ class TaskController extends GetxController {
         body['priority'] = after.priority.name;
 
         await _dioClient.dio.put(
-          '/tasks/$cleanId', 
+          '/tasks/$cleanId',
           data: body,
         );
         print("☁️ Task updated in cloud");
@@ -182,11 +181,11 @@ class TaskController extends GetxController {
     try {
       // 🧼 关键修复：和存的时候保持一致，把 ID 洗干净！
       final cleanId = id.replaceAll(RegExp(r'[\[\]#]'), '');
-      
+
       print("🗑️ Deleting task: $cleanId"); // 打印一下确认 ID 是干净的
 
       await _dioClient.dio.delete('/tasks/$cleanId');
-      
+
       print("☁️ Deleted task $cleanId from cloud");
     } catch (e) {
       print("⚠️ Delete failed: $e");
@@ -202,29 +201,53 @@ class TaskController extends GetxController {
       if (before.status == TaskStatus.completed) return;
 
       final now = DateTime.now();
-      final after = before.copyWith(status: TaskStatus.completed, updatedAt: now);
-      
+      final after =
+          before.copyWith(status: TaskStatus.completed, updatedAt: now);
+
       // 直接调用 updateTask 以触发云端同步
-      updateTask(after); 
+      updateTask(after);
 
       // 这里的数字最好和后端 update_task 里的 reward_coins 保持一致
       wallet.addCoinsLocally(10);
 
       // 额外的宠物逻辑
       notifier.cancelForTask(id);
-      
+
       bool early = false, onTime = false, late = false;
       if (after.type == TaskType.singleDay && after.dueDateTime != null) {
         early = now.isBefore(after.dueDateTime!);
-        onTime = !early && now.difference(after.dueDateTime!).inMinutes.abs() <= 5;
+        onTime =
+            !early && now.difference(after.dueDateTime!).inMinutes.abs() <= 5;
         late = now.isAfter(after.dueDateTime!);
       } else if (after.type == TaskType.ranged && after.dueDate != null) {
-        final dueEnd = DateTime(after.dueDate!.year, after.dueDate!.month, after.dueDate!.day, 23, 59, 59);
+        final dueEnd = DateTime(after.dueDate!.year, after.dueDate!.month,
+            after.dueDate!.day, 23, 59, 59);
         early = now.isBefore(dueEnd);
         onTime = !early && now.difference(dueEnd).inMinutes.abs() <= 5;
         late = now.isAfter(dueEnd);
       }
       pet.onTaskCompleted(early: early, onTime: onTime, late: late);
+    }
+  }
+
+  void undoComplete(String id) {
+    final idx = tasks.indexWhere((x) => x.id == id);
+    if (idx >= 0) {
+      final before = tasks[idx];
+
+      // 如果它本来就没完成，就别瞎扣钱了
+      if (before.status != TaskStatus.completed) return;
+
+      final after = before.copyWith(status: TaskStatus.notStarted);
+
+      // 1. ☁️ 同步后端 (后端会检测到状态变化，自动 -10)
+      updateTask(after);
+
+      // 2. 💸 前端乐观扣款 (传负数进去)
+      wallet.addCoinsLocally(-10);
+
+      // 3. 别忘了恢复之前的通知 (如果需要的话)
+      _scheduleAllNotifications(after);
     }
   }
 
@@ -252,10 +275,14 @@ class TaskController extends GetxController {
     final i = tasks.indexWhere((x) => x.id == taskId);
     if (i < 0) return;
     final t = tasks[i];
-    final subs = t.subtasks.map((s) => s.id == subId ? s.copyWith(status: status) : s).toList();
+    final subs = t.subtasks
+        .map((s) => s.id == subId ? s.copyWith(status: status) : s)
+        .toList();
     updateTask(t.copyWith(
       subtasks: subs,
-      status: t.progress >= 1.0 ? TaskStatus.completed : t.computeStatus(DateTime.now()),
+      status: t.progress >= 1.0
+          ? TaskStatus.completed
+          : t.computeStatus(DateTime.now()),
     ));
   }
 
@@ -292,19 +319,23 @@ class TaskController extends GetxController {
       if (t.notify.remindBeforeDue) {
         final dt = t.dueDateTime!.subtract(t.notify.remindBeforeDueOffset);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(t.id, 'dueSoon', dt, _msgDueSoon(t), payload: t.id);
+          notifier.scheduleOneShot(t.id, 'dueSoon', dt, _msgDueSoon(t),
+              payload: t.id);
         }
       }
       if (t.notify.remindOnDue) {
         final dt = t.dueDateTime!;
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(t.id, 'dueNow', dt, _msgDueNow(t), payload: t.id);
+          notifier.scheduleOneShot(t.id, 'dueNow', dt, _msgDueNow(t),
+              payload: t.id);
         }
       }
       // Today nudges
-      if (t.isDueToday(now) && t.notify.repeatWhenToday != RepeatGranularity.none) {
+      if (t.isDueToday(now) &&
+          t.notify.repeatWhenToday != RepeatGranularity.none) {
         if (t.notify.repeatWhenToday == RepeatGranularity.hour) {
-          notifier.scheduleHourly(t.id, 'todayNudge', t.notify.repeatInterval, _msgToday(t),
+          notifier.scheduleHourly(
+              t.id, 'todayNudge', t.notify.repeatInterval, _msgToday(t),
               payload: t.id);
         } else if (t.notify.repeatWhenToday == RepeatGranularity.day) {
           notifier.scheduleDaily(
@@ -317,32 +348,41 @@ class TaskController extends GetxController {
           );
         }
       }
-    } else if (t.type == TaskType.ranged && t.startDate != null && t.dueDate != null) {
+    } else if (t.type == TaskType.ranged &&
+        t.startDate != null &&
+        t.dueDate != null) {
       // Start reminders
       if (t.notify.remindBeforeStart) {
         final dt = t.startDate!.subtract(t.notify.remindBeforeStartOffset);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(t.id, 'startSoon', dt, _msgStartSoon(t), payload: t.id);
+          notifier.scheduleOneShot(t.id, 'startSoon', dt, _msgStartSoon(t),
+              payload: t.id);
         }
       }
       if (t.notify.remindOnStart) {
-        final dt = DateTime(t.startDate!.year, t.startDate!.month, t.startDate!.day, 8, 0);
+        final dt = DateTime(
+            t.startDate!.year, t.startDate!.month, t.startDate!.day, 8, 0);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(t.id, 'startToday', dt, _msgStartToday(t), payload: t.id);
+          notifier.scheduleOneShot(t.id, 'startToday', dt, _msgStartToday(t),
+              payload: t.id);
         }
       }
       // Due reminders
       if (t.notify.remindBeforeDue) {
-        final dt = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59)
-            .subtract(t.notify.remindBeforeDueOffset);
+        final dt =
+            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59)
+                .subtract(t.notify.remindBeforeDueOffset);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(t.id, 'dueSoon', dt, _msgDueSoon(t), payload: t.id);
+          notifier.scheduleOneShot(t.id, 'dueSoon', dt, _msgDueSoon(t),
+              payload: t.id);
         }
       }
       if (t.notify.remindOnDue) {
-        final dt = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
+        final dt =
+            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
         if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(t.id, 'dueToday', dt, _msgDueNow(t), payload: t.id);
+          notifier.scheduleOneShot(t.id, 'dueToday', dt, _msgDueNow(t),
+              payload: t.id);
         }
       }
     }
@@ -364,11 +404,15 @@ class TaskController extends GetxController {
   }
 
   // --- Message Generators ---
-  String _msgStartSoon(Task t) => "‘${t.title}’ starts soon. Plan your first session.";
-  String _msgStartToday(Task t) => "‘${t.title}’ starts today. Kick off with 25 min!";
-  String _msgDueSoon(Task t) => "‘${t.title}’ due soon. Wrap up remaining subtasks.";
+  String _msgStartSoon(Task t) =>
+      "‘${t.title}’ starts soon. Plan your first session.";
+  String _msgStartToday(Task t) =>
+      "‘${t.title}’ starts today. Kick off with 25 min!";
+  String _msgDueSoon(Task t) =>
+      "‘${t.title}’ due soon. Wrap up remaining subtasks.";
   String _msgDueNow(Task t) => "‘${t.title}’ due today. Final push!";
-  String _msgToday(Task t) => "Stay on track: ‘${t.title}’. Start a focus timer.";
+  String _msgToday(Task t) =>
+      "Stay on track: ‘${t.title}’. Start a focus timer.";
 
   // =========================================================
   // Recommendation Algorithm
@@ -396,7 +440,8 @@ class TaskController extends GetxController {
         due = (1440 - mins).clamp(0, 1440) / 1440 * 2.0; // within 24h
       }
     } else if (t.type == TaskType.ranged && t.dueDate != null) {
-      final end = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59, 59);
+      final end = DateTime(
+          t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59, 59);
       final mins = end.difference(now).inMinutes;
       if (mins <= 0) {
         due = 2.5;
@@ -405,8 +450,8 @@ class TaskController extends GetxController {
       }
     }
 
-    final int est =
-        t.estimatedMinutes ?? t.subtasks.fold<int>(0, (a, s) => a + (s.estimatedMinutes ?? 0));
+    final int est = t.estimatedMinutes ??
+        t.subtasks.fold<int>(0, (a, s) => a + (s.estimatedMinutes ?? 0));
     final double quick = (est == 0)
         ? 0.3
         : (est <= 30)
@@ -422,11 +467,12 @@ class TaskController extends GetxController {
 
   List<Task> recommended({int max = 5}) {
     final now = DateTime.now();
-    final candidates = tasks.where((t) => t.status != TaskStatus.completed).toList();
-    candidates.sort((a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
+    final candidates =
+        tasks.where((t) => t.status != TaskStatus.completed).toList();
+    candidates.sort(
+        (a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
     return candidates.take(max).toList();
   }
-
 
   // =========================================================
   // Demo Data (Fixes setting.dart error)
@@ -449,7 +495,7 @@ class TaskController extends GetxController {
       final isSingle = i % 2 == 0;
       final cat = cats[i % cats.length];
       final pri = pickPri(i);
-      final important = (i % 3 != 0); 
+      final important = (i % 3 != 0);
       final est = [20, 30, 45, 60, 90, 120][i % 6];
 
       final t = Task(
@@ -457,7 +503,8 @@ class TaskController extends GetxController {
         title: isSingle ? 'Finish $cat task $i' : 'Work on $cat project $i',
         category: cat,
         type: isSingle ? TaskType.singleDay : TaskType.ranged,
-        dueDateTime: isSingle ? now.add(Duration(hours: (i % 8) * 3 + 2)) : null,
+        dueDateTime:
+            isSingle ? now.add(Duration(hours: (i % 8) * 3 + 2)) : null,
         startDate: isSingle ? null : now.subtract(Duration(days: i % 2)),
         dueDate: isSingle ? null : now.add(Duration(days: 1 + (i % 5))),
         priority: pri,

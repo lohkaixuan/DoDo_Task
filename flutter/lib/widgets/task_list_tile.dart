@@ -28,12 +28,15 @@ Widget _swipeBg({
   Color? color,
 }) {
   final child = Row(
-    mainAxisAlignment: alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+    mainAxisAlignment:
+        alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
     children: [
       if (!alignRight) const SizedBox(width: 12),
       Icon(icon, color: Colors.white),
       const SizedBox(width: 8),
-      Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+      Text(label,
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w600)),
       if (alignRight) const SizedBox(width: 12),
     ],
   );
@@ -67,13 +70,12 @@ class TaskListTile extends StatelessWidget {
       key: Key(task.id),
       direction: DismissDirection.horizontal,
       confirmDismiss: (dir) async {
-        
         // 👉 逻辑 1：从左向右滑 (StartToEnd) -> 完成/撤销
         if (dir == DismissDirection.startToEnd) {
           _toggleComplete(tc);
           return false; // 不删除组件，只改状态
-        } 
-        
+        }
+
         // 👉 逻辑 2：从右向左滑 (EndToStart) -> 删除
         else {
           final ok = await showDialog<bool>(
@@ -96,12 +98,12 @@ class TaskListTile extends StatelessWidget {
           if (ok) {
             // ✅✅✅ 关键修复！直接调用 Controller 的删除方法！
             // 这会自动触发：1.本地删除 2.ID清洗 3.发送API请求
-            tc.removeById(task.id); 
+            tc.removeById(task.id);
           }
           return ok;
         }
       },
-      
+
       // 🎨 视觉 1：从左向右滑的背景 (StartToEnd) -> 完成 (绿色/蓝色)
       background: _swipeBg(
         alignRight: false, // 图标在左边
@@ -109,7 +111,7 @@ class TaskListTile extends StatelessWidget {
         icon: _isDone ? Icons.undo_rounded : Icons.check_circle,
         color: _isDone ? Colors.blue : Colors.green,
       ),
-      
+
       // 🎨 视觉 2：从右向左滑的背景 (EndToStart) -> 删除 (红色)
       secondaryBackground: _swipeBg(
         alignRight: true, // 图标在右边
@@ -120,7 +122,7 @@ class TaskListTile extends StatelessWidget {
 
       child: Opacity(
         // ... 原封不动 ...
-        opacity: _isDone ? 0.6 : 1.0, 
+        opacity: _isDone ? 0.6 : 1.0,
         child: Card(
           shape: RoundedRectangleBorder(borderRadius: radius),
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -159,13 +161,16 @@ class TaskListTile extends StatelessWidget {
                       }
                     },
                     itemBuilder: (ctx) => [
-                      const PopupMenuItem(value: 'focus', child: Text('Start focus')),
+                      const PopupMenuItem(
+                          value: 'focus', child: Text('Start focus')),
                       const PopupMenuItem(value: 'edit', child: Text('Edit')),
                       PopupMenuItem(
                         value: 'toggle',
-                        child: Text(_isDone ? 'Mark as not done' : 'Mark complete'),
+                        child: Text(
+                            _isDone ? 'Mark as not done' : 'Mark complete'),
                       ),
-                      const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      const PopupMenuItem(
+                          value: 'delete', child: Text('Delete')),
                     ],
                   ),
                 ],
@@ -179,9 +184,13 @@ class TaskListTile extends StatelessWidget {
 
   void _toggleComplete(TaskController tc) {
     if (_isDone) {
-      // undo -> notStarted (or infer)
-      tc.updateTask(task.copyWith(status: TaskStatus.notStarted));
+      // ❌ 之前是直接 updateTask
+      // tc.updateTask(task.copyWith(status: TaskStatus.notStarted));
+
+      // ✅ 现在改成调用撤销方法 (会扣钱)
+      tc.undoComplete(task.id);
     } else {
+      // 完成任务 (会加钱)
       tc.completeTask(task.id);
     }
   }

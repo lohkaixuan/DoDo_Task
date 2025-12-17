@@ -1,5 +1,6 @@
 // lib/controller/walletController.dart
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 import '../api/dioclient.dart';
@@ -59,15 +60,34 @@ class WalletController extends GetxController {
     return false;
   }
 
-  // ➕ 3. 乐观更新 (TaskController 用)
+  // ➕➖ 3. 智能加减钱 (自动判断是奖励还是惩罚)
   void addCoinsLocally(int amount) {
     coins.value += amount;
-    // 这里的逻辑是：UI 先变数字让用户爽，实际的钱后端在 updateTask 时已经加进数据库了
-    Get.snackbar(
-      "Cha-Ching! 💰",
-      "任务完成！奖励 +$amount 金币",
-      snackPosition: SnackPosition.TOP,
-      duration: const Duration(seconds: 2),
-    );
+
+    // 🟢 情况 A: 赚钱了 (Amount > 0)
+    if (amount > 0) {
+      Get.snackbar(
+        "Cha-Ching! 💰", 
+        "Task Completed! +$amount Coins",
+        backgroundColor: const Color(0xFFFFD700), // 金色背景
+        colorText: Colors.black,
+        snackPosition: SnackPosition.TOP,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.all(10),
+      );
+    } 
+    // 🔴 情况 B: 扣钱了 (Amount < 0)
+    else {
+      Get.snackbar(
+        "Task Unfinished ↩️", // 标题：任务未完成
+        "Refunded! $amount Coins", // 内容：-10 金币
+        backgroundColor: Colors.redAccent.shade100, // 红色背景，警示一下
+        colorText: Colors.white,
+        icon: const Icon(Icons.remove_circle_outline, color: Colors.white),
+        snackPosition: SnackPosition.TOP,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.all(10),
+      );
+    }
   }
 }
