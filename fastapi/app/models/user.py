@@ -9,6 +9,7 @@ class User(Document):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: datetime | None = None
     preferences: dict | None = None
+    coins: int = 0  # 新增的金币字段，默认值为0
 
     class Settings:
         name = "users"

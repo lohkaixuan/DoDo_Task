@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controller/authController.dart';
+import '../controller/walletController.dart';
 
 class LoginPage extends StatefulWidget{
   LoginPage({super.key});
@@ -23,8 +24,10 @@ class _LoginPageState extends State<LoginPage> {
     ];
     loginButton = [
       { 'label': 'Login', 'action': () { /* Handle login logic here */ }, },
-
     ];
+    if (Get.isRegistered<WalletController>()) {
+    Get.find<WalletController>().fetchBalance();
+  }
   }
 
   @override
