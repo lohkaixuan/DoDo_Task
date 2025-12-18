@@ -10,6 +10,7 @@ class User(Document):
     last_login: datetime | None = None
     preferences: dict | None = None
     coins: int = Field(default=0)
+    print("🧾 BALANCE CHECK:", user.email, user.coins)
 
     class Settings:
         name = "users"

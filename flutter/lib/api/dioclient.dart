@@ -9,8 +9,8 @@ class DioClient {
       : _dio = Dio(
           BaseOptions(
             baseUrl: "https://dodo-task-1.onrender.com".trim(), // ✅ Change to your API URL
-            connectTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
+            connectTimeout: const Duration(seconds: 30),
+            receiveTimeout: const Duration(seconds: 30),
             responseType: ResponseType.json, 
             headers: {
               'Content-Type': 'application/json',
