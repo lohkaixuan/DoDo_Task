@@ -75,6 +75,11 @@ async def _rotate_and_issue(user: Dict[str, Any]) -> Dict[str, Any]:
         {"$set": {"token_version": new_ver, "last_login_at": datetime.now(timezone.utc)}},
     )
     token = _make_token(user_id=str(user["_id"]), email=user["email"], ver=new_ver)
+
+    coins = user.get("coins")
+    if coins is None:
+        coins = user.get("coin_balance", 0)
+
     return {
         "token": token,
         "token_type": "bearer",
@@ -82,6 +87,7 @@ async def _rotate_and_issue(user: Dict[str, Any]) -> Dict[str, Any]:
             "id": str(user["_id"]),
             "email": user["email"],
             "display_name": user.get("display_name") or "",
+            "coins": int(coins or 0),
         },
     }
 
