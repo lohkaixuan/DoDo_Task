@@ -7,6 +7,7 @@ import 'api/dioclient.dart';
 import 'controller/authController.dart';
 import 'controller/taskController.dart';
 import 'controller/petController.dart';
+import 'controller/walletController.dart';
 import 'services/notification_service.dart';
 
 import 'route/page.dart';            // ← your AppPages (keep!)
@@ -20,6 +21,7 @@ Future<void> main() async {
   Get.put<DioClient>(DioClient(), permanent: true);
 
   // Controllers
+  Get.put<WalletController>(WalletController(), permanent: true);
   Get.put<AuthController>(AuthController(), permanent: true);
   Get.put<PetController>(PetController(), permanent: true);
   Get.put<TaskController>(

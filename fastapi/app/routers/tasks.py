@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Body
 from typing import List
+from app.models.user import User
 from app.models.models import Task
 
 router = APIRouter()
@@ -22,58 +23,46 @@ async def get_user_tasks(user_email: str):
 # 3. 更新任务 (当你在 Flutter 修改了任务)
 @router.put("/tasks/{flutter_id}", tags=["Tasks"])
 async def update_task(flutter_id: str, task_data: Task):
-    # 1. 找原来的任务
+    # 1) 找任务
     existing_task = await Task.find_one(Task.flutter_id == flutter_id)
     if not existing_task:
-        print(f"❌ Task not found: {flutter_id}") # Debug Log
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Debug Logs: 打印出来看看状态到底是个啥
+    # Debug logs
     print(f"🔍 Checking Task: {existing_task.title}")
     print(f"   --- Old Status: {existing_task.status}")
     print(f"   --- New Status: {task_data.status}")
 
-    # 情况 A: 刚刚完成
-    is_just_completed = (
-        task_data.status == "completed" and 
-        existing_task.status != "completed"
-    )
-    
-    # 情况 B: 刚刚取消
-    is_just_uncompleted = (
-        existing_task.status == "completed" and
-        task_data.status != "completed"
-    )
-    
+    # 2) 判断 coins 变化
+    is_just_completed = (task_data.status == "completed" and existing_task.status != "completed")
+    is_just_uncompleted = (existing_task.status == "completed" and task_data.status != "completed")
+
+    coins_change = 10 if is_just_completed else (-10 if is_just_uncompleted else 0)
+
     print(f"   --- Is Just Completed? {is_just_completed}")
-
-    # 更新数据库
-    await existing_task.update({"$set": task_data.dict(exclude={"id"})})
-    
-    # 💰 算账
-    coins_change = 0
-    if is_just_completed:
-        coins_change = 10
-    elif is_just_uncompleted:
-        coins_change = -10
-
     print(f"   --- Coins Change: {coins_change}")
+    print(f"   --- Looking for user email: {existing_task.user_email}")
 
+    # 3) 更新任务本身（先更新任务）
+    await existing_task.update({"$set": task_data.model_dump(exclude={"id"})})
+
+    # 4) 若需要，更新用户 coins
+    new_coins = None
     if coins_change != 0:
-        # 找用户
-        print(f"   --- Looking for user email: {existing_task.user_email}")
         user = await User.find_one(User.email == existing_task.user_email)
-        
-        if user:
-            user.coins += coins_change
-            await user.save()
-            print(f"✅ User found! New Balance: {user.coins}")
-        else:
-            print(f"❌ User NOT found for email: {existing_task.user_email}")
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found for coin update")
 
+        user.coins = int(user.coins or 0) + int(coins_change)
+        await user.save()
+        new_coins = user.coins
+        print("✅ COIN UPDATE:", user.email, "change=", coins_change, "now=", user.coins)
+
+    # 5) 回传给 Flutter（关键：回 coins）
     return {
-        "message": "Updated", 
-        "coins_earned": coins_change
+        "message": "Updated",
+        "coins_change": coins_change,
+        "coins": new_coins,   # 前端用这个直接更新 UI
     }
 
 # 4. 删除任务
