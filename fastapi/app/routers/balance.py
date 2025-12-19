@@ -18,7 +18,7 @@ async def get_balance(user: User = Depends(get_current_user)):
     print("🧾 BALANCE CHECK:", user.email, user.coins)
     return {
         "email": user.email,
-        "coins": user.coins,
+        "coins": int(user.coins or 0),
     }
 
 @router.post("/balance/earn")
@@ -53,5 +53,5 @@ async def spend_coins(
 
     return {
         "message": f"Successfully bought {request.item_name}",
-        "remaining_coins": user.coins
+        "coins": user.coins
     }

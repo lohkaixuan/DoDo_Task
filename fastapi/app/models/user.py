@@ -4,7 +4,7 @@ from datetime import datetime
 
 class User(Document):
     email: Indexed(EmailStr, unique=True)
-    hashed_password: str
+    password_hash: str
     display_name: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: datetime | None = None
