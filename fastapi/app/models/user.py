@@ -9,8 +9,9 @@ class User(Document):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: datetime | None = None
     preferences: dict | None = None
+
+    # ✅ keep this
     coins: int = Field(default=0)
-    print("🧾 BALANCE CHECK:", user.email, user.coins)
 
     class Settings:
         name = "users"

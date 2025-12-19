@@ -14,13 +14,11 @@ class SpendRequest(BaseModel):
 
 # 💰 1. 查余额
 @router.get("/balance", tags=["Gamification"])
-# 👇 注意这里类型改成 User，直接拿到用户对象
 async def get_balance(user: User = Depends(get_current_user)):
     print("🧾 BALANCE CHECK:", user.email, user.coins)
     return {
         "email": user.email,
         "coins": user.coins,
-        # "username": user.display_name # 注意：你的 User 模型里好像是 display_name 不是 username
     }
 
 @router.post("/balance/earn")
