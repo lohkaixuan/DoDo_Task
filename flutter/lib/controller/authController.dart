@@ -21,15 +21,13 @@ class AuthController extends GetxController {
       isLoading.value = true;
       var res = await ApiService(dioClient).login(email, password);
 
-      if (res.message.contains("success")) {
-        Get.snackbar('Login', 'Login successful');
-        await AuthStorage.save(res.token, res.id,res.email);
-        final walletC = Get.find<WalletController>();
-        await walletC.fetchBalance();
-        Get.offAllNamed('/home');
-      } else {
-        Get.snackbar('Login failed', 'Server rejected the credentials');
-      }
+      if (res.token != null && res.token!.isNotEmpty) {
+      await AuthStorage.save(res.token, res.id, res.email);
+      await Get.find<WalletController>().fetchBalance();
+      Get.offAllNamed('/home');
+    } else {
+      Get.snackbar("Login failed", "No token");
+    }
     } catch (e) {
       Get.snackbar('Login error', e.toString());
       print("login error $e");

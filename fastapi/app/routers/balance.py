@@ -10,15 +10,30 @@ class SpendRequest(BaseModel):
     amount: int
     item_name: str
 
+#少一個放進去database的
+
 # 💰 1. 查余额
 @router.get("/balance", tags=["Gamification"])
-# 👇 注意这里类型改成 User，直接拿到用户对象
 async def get_balance(user: User = Depends(get_current_user)):
+    print("🧾 BALANCE CHECK:", user.email, user.coins)
     return {
         "email": user.email,
-        "coins": user.coins,
-        # "username": user.display_name # 注意：你的 User 模型里好像是 display_name 不是 username
+        "coins": int(user.coins or 0),
     }
+
+@router.post("/balance/earn")
+async def earn_coins(
+    amount: int,
+    user: User = Depends(get_current_user)
+):
+    user.coins = (user.coins or 0) + amount
+    await user.save()
+
+    return {
+        "coins": user.coins,
+        "earned": amount
+    }
+
 
 # 💸 2. 花钱
 @router.post("/balance/spend", tags=["Gamification"])
@@ -38,5 +53,5 @@ async def spend_coins(
 
     return {
         "message": f"Successfully bought {request.item_name}",
-        "remaining_coins": user.coins
+        "coins": user.coins
     }
