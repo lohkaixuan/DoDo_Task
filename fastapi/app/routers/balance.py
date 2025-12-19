@@ -21,19 +21,16 @@ async def get_balance(user: User = Depends(get_current_user)):
         "coins": int(user.coins or 0),
     }
 
-@router.post("/balance/earn")
-async def earn_coins(
-    amount: int,
-    user: User = Depends(get_current_user)
-):
-    user.coins = (user.coins or 0) + amount
+#  🤑 2. 赚金币
+class EarnRequest(BaseModel):
+    amount: int
+    reason: str | None = None
+
+@router.post("/balance/earn", tags=["Gamification"])
+async def earn_coins(req: EarnRequest, user: User = Depends(get_current_user)):
+    user.coins = int(user.coins or 0) + int(req.amount)
     await user.save()
-
-    return {
-        "coins": user.coins,
-        "earned": amount
-    }
-
+    return {"coins": int(user.coins or 0), "earned": int(req.amount)}
 
 # 💸 2. 花钱
 @router.post("/balance/spend", tags=["Gamification"])

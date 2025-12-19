@@ -1,6 +1,7 @@
 // lib/apis.dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import '../storage/authStorage.dart';
 import 'apimodel.dart';
 import 'dioclient.dart';
 
@@ -8,7 +9,8 @@ import 'dioclient.dart';
 Map<String, dynamic> _asMap(dynamic data) {
   if (data is Map<String, dynamic>) return data;
   if (data is Map) return Map<String, dynamic>.from(data);
-  if (data is String && data.isNotEmpty) return jsonDecode(data) as Map<String, dynamic>;
+  if (data is String && data.isNotEmpty)
+    return jsonDecode(data) as Map<String, dynamic>;
   return <String, dynamic>{}; // fallback to empty map
 }
 
@@ -47,7 +49,8 @@ class ApiService {
       final response = await _dioClient.dio.post('/auth/login', data: {
         'token': token,
       });
-      print('loginWithToken -> res.data runtimeType: ${response.data.runtimeType}');
+      print(
+          'loginWithToken -> res.data runtimeType: ${response.data.runtimeType}');
       final body = _asMap(response.data);
       return LoginResponse.fromJson(body);
     } on DioException catch (e) {
@@ -58,7 +61,8 @@ class ApiService {
     }
   }
 
-  Future<RegisterResponse> register(String email, String password, String displayName) async {
+  Future<RegisterResponse> register(
+      String email, String password, String displayName) async {
     print('ApiService.register called with email: $email, password: $password');
     try {
       final response = await _dioClient.dio.post('/auth/register', data: {
@@ -75,5 +79,14 @@ class ApiService {
         e.response?.data?.toString() ?? e.message ?? 'Something went wrong',
       );
     }
+  }
+
+  Future<Response> earnCoins(int amount) async {
+    final token = await AuthStorage.readToken();
+    return _dioClient.dio.post(
+      '/balance/earn',
+      data: {'amount': amount, 'reason': 'task_complete'},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
   }
 }

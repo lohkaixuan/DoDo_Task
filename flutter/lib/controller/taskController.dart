@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 
+import '../api/apis.dart';
 import '../models/task.dart';
 import '../services/notification_service.dart';
 import 'petController.dart';
@@ -17,7 +18,8 @@ class TaskController extends GetxController {
 
   // 💉 获取 DioClient
   final DioClient _dioClient = Get.find<DioClient>();
-  final WalletController wallet = Get.put(WalletController());
+  final walletC = Get.find<WalletController>();
+  final api = ApiService(Get.find<DioClient>());
 
   TaskController(this.notifier, this.pet);
 
@@ -194,40 +196,46 @@ class TaskController extends GetxController {
 
   void remove(Task t) => removeById(t.id);
 
-  void completeTask(String id) {
+  Future<void> completeTask(String id) async {
     final idx = tasks.indexWhere((x) => x.id == id);
-    if (idx >= 0) {
-      final before = tasks[idx];
-      if (before.status == TaskStatus.completed) return;
+    if (idx < 0) return;
 
-      final now = DateTime.now();
-      final after =
-          before.copyWith(status: TaskStatus.completed, updatedAt: now);
+    final before = tasks[idx];
+    if (before.status == TaskStatus.completed) return;
 
-      // 直接调用 updateTask 以触发云端同步
-      updateTask(after);
+    final now = DateTime.now();
+    final after = before.copyWith(status: TaskStatus.completed, updatedAt: now);
 
-      // 这里的数字最好和后端 update_task 里的 reward_coins 保持一致
-      wallet.addCoinsLocally(10);
+    // 1) 更新任务（你原本就有：会写入 DB）
+    await updateTask(after);
 
-      // 额外的宠物逻辑
-      notifier.cancelForTask(id);
-
-      bool early = false, onTime = false, late = false;
-      if (after.type == TaskType.singleDay && after.dueDateTime != null) {
-        early = now.isBefore(after.dueDateTime!);
-        onTime =
-            !early && now.difference(after.dueDateTime!).inMinutes.abs() <= 5;
-        late = now.isAfter(after.dueDateTime!);
-      } else if (after.type == TaskType.ranged && after.dueDate != null) {
-        final dueEnd = DateTime(after.dueDate!.year, after.dueDate!.month,
-            after.dueDate!.day, 23, 59, 59);
-        early = now.isBefore(dueEnd);
-        onTime = !early && now.difference(dueEnd).inMinutes.abs() <= 5;
-        late = now.isAfter(dueEnd);
-      }
-      pet.onTaskCompleted(early: early, onTime: onTime, late: late);
+    // 2) ✅ 写 coins 进 DB（关键！）
+    try {
+      final res = await api.earnCoins(10);
+      final newCoins = (res.data['coins'] ?? 0) as int;
+      walletC.coins.value = newCoins; // UI 更新
+      print("✅ Coins saved to DB. New coins = $newCoins");
+    } catch (e) {
+      print("❌ earnCoins failed: $e");
     }
+
+    // 3) 取消通知 + 宠物逻辑照旧
+    notifier.cancelForTask(id);
+
+    bool early = false, onTime = false, late = false;
+    if (after.type == TaskType.singleDay && after.dueDateTime != null) {
+      early = now.isBefore(after.dueDateTime!);
+      onTime =
+          !early && now.difference(after.dueDateTime!).inMinutes.abs() <= 5;
+      late = now.isAfter(after.dueDateTime!);
+    } else if (after.type == TaskType.ranged && after.dueDate != null) {
+      final dueEnd = DateTime(after.dueDate!.year, after.dueDate!.month,
+          after.dueDate!.day, 23, 59, 59);
+      early = now.isBefore(dueEnd);
+      onTime = !early && now.difference(dueEnd).inMinutes.abs() <= 5;
+      late = now.isAfter(dueEnd);
+    }
+    pet.onTaskCompleted(early: early, onTime: onTime, late: late);
   }
 
   void undoComplete(String id) {
@@ -244,7 +252,7 @@ class TaskController extends GetxController {
       updateTask(after);
 
       // 2. 💸 前端乐观扣款 (传负数进去)
-      wallet.addCoinsLocally(-10);
+      //wallet.addCoinsLocally(-10);
 
       // 3. 别忘了恢复之前的通知 (如果需要的话)
       _scheduleAllNotifications(after);
