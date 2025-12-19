@@ -1,25 +1,22 @@
+import 'dart:async';
 import 'package:get/get.dart';
 
-enum PetEmotionFlag {
-  idle,          // baseline
-  start,         // user started something
-  focus,         // during focus
-  nudging,       // reminder
-  late,          // overdue
-  completedEarly,
-  completedOnTime,
-  completedLate,
-  tired,         // too much continuous work
-  happy,         // emotion high but healthy
-  sad,           // emotion low
-}
+enum PetMood { idle, sad, focus, tired, rest }
+enum PetEvent { dance, eat, drink, walk }
 
 class PetController extends GetxController {
-  // Main emotion meter (0..100). Daily refresh at midnight.
-  final emotion = 60.obs;       // baseline start
-  final exp = 0.obs;            // experience points
+  // --- score system ---
+  final emotion = 40.obs; // 0..100 mood score
+  final exp = 0.obs;
   final level = 1.obs;
-  final fatigueMinutes = 0.obs; // continuous focus minutes (resets on break)
+
+  // --- persistent mood + temporary event ---
+  final mood = PetMood.idle.obs;
+  final event = Rxn<PetEvent>();
+  Timer? _eventTimer;
+
+  // fatigue tracking for long focus
+  final fatigueMinutes = 0.obs;
   DateTime _lastEmotionDay = _today();
 
   static DateTime _today() {
@@ -27,115 +24,144 @@ class PetController extends GetxController {
     return DateTime(n.year, n.month, n.day);
   }
 
-  // ----- DAILY REFRESH ----- 
-  // Call this in app foreground / on tick
+  // Assets mapping (based on your list)
+  static const _moodAsset = {
+    PetMood.idle: 'assets/idle.png',
+    PetMood.sad: 'assets/sad.png',
+    PetMood.focus: 'assets/study.png',
+    PetMood.tired: 'assets/tired.png',
+    PetMood.rest: 'assets/wellness.png',
+  };
+
+  static const _eventAsset = {
+    PetEvent.dance: 'assets/dance.gif',
+    PetEvent.eat: 'assets/eat.gif',
+    PetEvent.walk: 'assets/move.gif',
+    PetEvent.drink: 'assets/drink.png',
+  };
+
+  String get currentSprite {
+    final e = event.value;
+    if (e != null) return _eventAsset[e]!;
+    return _moodAsset[mood.value]!;
+  }
+
+  // ---------- Daily refresh ----------
   void tickDailyRefresh() {
     final today = _today();
     if (today.isAfter(_lastEmotionDay)) {
-      // Daily decay towards 60 (neutral), clamp in [0,100]
+      // drift emotion back toward 60
       final current = emotion.value;
       final diff = current - 60;
-      final newVal = (current - diff * 0.7).round(); // soften towards baseline
+      final newVal = (current - diff * 0.7).round();
       emotion.value = newVal.clamp(0, 100);
       fatigueMinutes.value = 0;
       _lastEmotionDay = today;
+      _recalcMoodFromScore();
     }
   }
 
-  void setEmotionFlag(PetEmotionFlag flag) {
-    // Simple flag to let your UI swap pet images/animations
-    // You can store it if you want:
-    // currentFlag.value = flag;
+  // ---------- core helpers ----------
+  void _bumpEmotion(int n) {
+    emotion.value = (emotion.value + n).clamp(0, 100);
+    _recalcMoodFromScore();
   }
- String get currentSprite {
-    final e = emotion.value; // 0..100 (you already expose this)
-    // pick your own files here:
-    if (e >= 80) return 'assets/dance.gif';
-    if (e >= 50) return 'assets/eat.gif';
-    if (e >= 25) return 'assets/sad.png';
-    return 'assets/sad.png';
+
+  void _dropEmotion(int n) {
+    emotion.value = (emotion.value - n).clamp(0, 100);
+    _recalcMoodFromScore();
   }
+
+  void _recalcMoodFromScore() {
+    // if currently focus/rest, don't override until ended
+    if (mood.value == PetMood.focus || mood.value == PetMood.rest) return;
+
+    final s = emotion.value;
+    if (s <= 30) {
+      mood.value = PetMood.sad;
+    } else if (s <= 45) {
+      mood.value = PetMood.tired;
+    } else {
+      mood.value = PetMood.idle;
+    }
+  }
+
+  void playEvent(PetEvent e, {Duration duration = const Duration(seconds: 3)}) {
+    _eventTimer?.cancel();
+    event.value = e;
+    _eventTimer = Timer(duration, () => event.value = null);
+  }
+
+  // =========================================================
+  // ✅ Compatibility methods (keep your existing calls working)
+  // =========================================================
+
   void addExp(int points) {
     exp.value += points;
-    // small emotion boost for gaining XP
     _bumpEmotion(2);
-    // level up each 100 XP (simple rule)
     while (exp.value >= level.value * 100) {
       exp.value -= level.value * 100;
       level.value += 1;
-      _bumpEmotion(5); // happy ping on level up
+      _bumpEmotion(5);
+      // small celebration on level up
+      playEvent(PetEvent.dance, duration: const Duration(seconds: 2));
     }
   }
 
-  void onFocusStart(int minutesPlanned) {
-    setEmotionFlag(PetEmotionFlag.focus);
+  // Focus timer calls these:
+  void onFocusStart([int minutesPlanned = 25]) {
+    mood.value = PetMood.focus;
   }
+
 
   void onFocusAccumulate(int seconds) {
     fatigueMinutes.value += (seconds / 60).floor();
-    // If continuous work exceeds healthy window, reduce emotion slightly
     if (fatigueMinutes.value >= 120) {
-      // 2 hours continuous → tired
-      setEmotionFlag(PetEmotionFlag.tired);
+      mood.value = PetMood.tired;
       _dropEmotion(1);
     }
   }
 
   void onFocusPauseOrBreak() {
     fatigueMinutes.value = 0;
+    // If paused, go back to idle (or score-based mood)
+    mood.value = PetMood.idle;
+    _recalcMoodFromScore();
   }
 
-  void onTaskStarted() {
-    setEmotionFlag(PetEmotionFlag.start);
-    _bumpEmotion(1);
-  }
+  // Task triggers (你完成加分 / 拖延扣分)
+  void onTaskStarted() => _bumpEmotion(1);
 
-  void onTaskCompleted({required bool early, required bool onTime, required bool late}) {
+  void onTaskLate() => _dropEmotion(4);
+  void onTaskDelayed() => onTaskLate();
+
+  void onTaskCompleted({required bool early, required bool onTime, required bool late, bool allDailyDone = false}) {
     if (early) {
-      setEmotionFlag(PetEmotionFlag.completedEarly);
       _bumpEmotion(6);
       addExp(20);
     } else if (onTime) {
-      setEmotionFlag(PetEmotionFlag.completedOnTime);
       _bumpEmotion(4);
       addExp(15);
     } else if (late) {
-      setEmotionFlag(PetEmotionFlag.completedLate);
       _dropEmotion(6);
       addExp(8);
     }
-    _normalizeFeeling();
-  }
-
-  void onTaskLate() {
-    setEmotionFlag(PetEmotionFlag.late);
-    _dropEmotion(4);
-  }
-
-  void nudge() {
-    setEmotionFlag(PetEmotionFlag.nudging);
-  }
-
-  // Helpers
-  void _bumpEmotion(int n) {
-    emotion.value = (emotion.value + n).clamp(0, 100);
-  }
-
-  void _dropEmotion(int n) {
-    emotion.value = (emotion.value - n).clamp(0, 100);
-  }
-
-  void _normalizeFeeling() {
-    // if too high for long, pet can feel “overstimulated → sad/tired”
-    if (emotion.value >= 90 && fatigueMinutes.value >= 180) {
-      // 3h continuous at very high emotion
-      setEmotionFlag(PetEmotionFlag.tired);
-      _dropEmotion(10);
+    if (allDailyDone) {
+      playEvent(PetEvent.dance, duration: const Duration(seconds: 4));
     }
-    if (emotion.value <= 20) {
-      setEmotionFlag(PetEmotionFlag.sad);
-    } else if (emotion.value >= 80) {
-      setEmotionFlag(PetEmotionFlag.happy);
-    }
+  }
+
+  // Extra events
+  void onRestStart() => mood.value = PetMood.rest;
+  void onRestEnd() { mood.value = PetMood.idle; _recalcMoodFromScore(); }
+
+  void onShopOpen() => playEvent(PetEvent.eat, duration: const Duration(seconds: 3));
+  void onDrinkReminder() => playEvent(PetEvent.drink, duration: const Duration(seconds: 2));
+  void randomWalk() => playEvent(PetEvent.walk, duration: const Duration(seconds: 5));
+
+  @override
+  void onClose() {
+    _eventTimer?.cancel();
+    super.onClose();
   }
 }

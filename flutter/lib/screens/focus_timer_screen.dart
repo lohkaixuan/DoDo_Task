@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
 import '../controller/taskController.dart';
@@ -104,7 +103,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
       tc.markInProgress(taskId!);
     }
 
-    pet.onFocusStart(remaining.inMinutes);
+    pet.onFocusStart( );
     _notifyOngoing(); // show first sticky notification
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (t) {

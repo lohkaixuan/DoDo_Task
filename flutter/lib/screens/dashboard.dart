@@ -52,7 +52,7 @@ class Dashboard extends StatelessWidget {
           padding: padAll(context, h: 16, v: 16),
           children: [
             // Pet header
-            PetHeader(imageOverride: pet.currentSprite),
+            PetHeader(imageOverride: pet.currentSprite), 
 
             // Donut Card
             Card(

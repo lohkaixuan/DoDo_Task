@@ -277,7 +277,7 @@ List<Task> recommended({int max = 5}) {
   }
 
   void startFocusOnSubTask(String taskId, String subId, int minutes) {
-    pet.onFocusStart(minutes);
+    //pet.onFocusStart(minutes); 這個有問題
     final i = tasks.indexWhere((x) => x.id == taskId);
     if (i >= 0) {
       updateTask(tasks[i].copyWith(status: TaskStatus.inProgress));
@@ -308,7 +308,7 @@ List<Task> recommended({int max = 5}) {
     }
     if (before.computeStatus(now) == TaskStatus.notStarted &&
         after.computeStatus(now) == TaskStatus.inProgress) {
-      pet.onTaskStarted();
+      pet.onFocusStart();
     }
   }
 
