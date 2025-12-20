@@ -312,43 +312,4 @@ List<Task> recommended({int max = 5}) {
     }
   }
 
-// =========================
-// Demo Data
-// =========================
-void seedDemo({int count = 16}) {
-  clearAll();
-  final now = DateTime.now();
-  final cats = ['Study', 'Wellness', 'Family', 'Personal'];
-  int uid = 0;
-
-  PriorityLevel pickPri(int i) => switch (i % 4) {
-        0 => PriorityLevel.urgent,
-        1 => PriorityLevel.high,
-        2 => PriorityLevel.medium,
-        _ => PriorityLevel.low,
-      };
-
-  for (int i = 0; i < count; i++) {
-    final isSingle = i % 2 == 0;
-    final cat = cats[i % cats.length];
-    final pri = pickPri(i);
-    final important = (i % 3 != 0);
-    final est = [20, 30, 45, 60, 90, 120][i % 6];
-
-    final t = Task(
-      id: 'seed_${uid++}',
-      title: isSingle ? 'Finish $cat task $i' : 'Work on $cat project $i',
-      category: cat,
-      type: isSingle ? TaskType.singleDay : TaskType.ranged,
-      dueDateTime: isSingle ? now.add(Duration(hours: (i % 8) * 3 + 2)) : null,
-      startDate: isSingle ? null : now.subtract(Duration(days: i % 2)),
-      dueDate: isSingle ? null : now.add(Duration(days: 1 + (i % 5))),
-      priority: pri,
-      important: important,
-      estimatedMinutes: est,
-    );
-
-    addTask(t);
-  }
-}
 }

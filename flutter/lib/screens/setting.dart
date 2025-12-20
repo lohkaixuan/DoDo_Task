@@ -23,45 +23,6 @@ class Settings extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // --- Demo data / maintenance ---
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Data', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: () {
-                          tc.seedDemo();
-                          Get.snackbar('Seeded', 'Demo tasks created',
-                              snackPosition: SnackPosition.BOTTOM);
-                        },
-                        icon: const Icon(Icons.auto_awesome),
-                        label: const Text('Seed demo data'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          tc.clearAll();
-                          Get.snackbar('Cleared', 'All tasks removed',
-                              snackPosition: SnackPosition.BOTTOM);
-                        },
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Clear all tasks'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
           // --- Pet controls ---
           Card(
             child: Padding(
@@ -93,13 +54,31 @@ class Settings extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // --- About ---
+          // --- Logout ---
           Card(
-            child: ListTile(
-              title: const Text('About'),
-              subtitle: const Text('DoDo Task — demo settings'),
-              trailing: const Icon(Icons.info_outline),
-              onTap: () {},
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Account', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Logout'),
+                    trailing: ElevatedButton(
+                      onPressed: () {
+                        Get.deleteAll(force: true);
+                        Get.offAllNamed('/login');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: const Text('Logout'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
