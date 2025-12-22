@@ -38,48 +38,63 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-Future<void> promptEnableNotificationsIfNeeded() async {
+Future<bool> promptEnableNotificationsIfNeeded() async {
   final notifier = Get.find<NotificationService>();
 
   final enabled = await notifier.areEnabled();
-  if (enabled) return;
+  if (enabled) return true;
 
-  Get.dialog(
+  final result = await Get.dialog<bool>(
     AlertDialog(
       title: const Text('Enable Notifications'),
       content: const Text(
-        'To receive task reminders and focus alerts, please enable notifications.',
+        'To receive task reminders and focus alerts, '
+        'please enable notifications.',
       ),
       actions: [
         TextButton(
-          onPressed: () => Get.back(),
+          onPressed: () => Get.back(result: false),
           child: const Text('Later'),
         ),
         ElevatedButton(
           onPressed: () async {
             final ok = await notifier.ensurePermission();
-            Get.back();
 
-            if (!ok) {
-              Get.snackbar(
-                'Permission not granted',
-                'You can enable it in Settings > Apps > Notifications.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
+            if (ok) {
+              Get.back(result: true);
+              Get.snackbar('Enabled 🎉', 'Task reminders are ready!');
             } else {
-              Get.snackbar(
-                'Enabled!',
-                'Task reminders are ready 🦈',
-                snackPosition: SnackPosition.BOTTOM,
+              final go = await Get.dialog<bool>(
+                AlertDialog(
+                  title: const Text('Notifications Disabled'),
+                  content: const Text(
+                    'Please enable notifications in App Settings.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Get.back(result: false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Get.back(result: true),
+                      child: const Text('Open Settings'),
+                    ),
+                  ],
+                ),
               );
+
+              if (go == true) {
+                await notifier.openAppNotificationSettings();
+              }
             }
           },
           child: const Text('Enable'),
         ),
       ],
     ),
-    barrierDismissible: true,
   );
+
+  return result ?? false;
 }
 
 class MyApp extends StatelessWidget {

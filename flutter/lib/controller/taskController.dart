@@ -230,6 +230,77 @@ class TaskController extends GetxController {
   }
 
   // =========================================================
+// Recommendation (for Dashboard)
+// =========================================================
+
+  double _recommendScore(Task t, DateTime now) {
+    // ignore completed
+    if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) {
+      return -9999;
+    }
+
+    final pri = switch (t.priority) {
+      PriorityLevel.urgent => 4.0,
+      PriorityLevel.high => 3.0,
+      PriorityLevel.medium => 2.0,
+      PriorityLevel.low => 1.0,
+    };
+
+    final imp = t.important ? 1.2 : 0.0;
+
+    double due = 0;
+    if (t.type == TaskType.singleDay && t.dueDateTime != null) {
+      final mins = t.dueDateTime!.difference(now).inMinutes;
+      if (mins <= 0) {
+        due = 3.0;
+      } else {
+        due = (1440 - mins).clamp(0, 1440) / 1440 * 2.0;
+      }
+    } else if (t.type == TaskType.ranged && t.dueDate != null) {
+      final end = DateTime(
+        t.dueDate!.year,
+        t.dueDate!.month,
+        t.dueDate!.day,
+        23,
+        59,
+        59,
+      );
+      final mins = end.difference(now).inMinutes;
+      if (mins <= 0) {
+        due = 2.5;
+      } else {
+        due = (4320 - mins).clamp(0, 4320) / 4320 * 1.7;
+      }
+    }
+
+    // "quick win" boost
+    final int est = t.estimatedMinutes ??
+        t.subtasks.fold<int>(0, (a, s) => a + (s.estimatedMinutes ?? 0));
+
+    final double quick = (est == 0)
+        ? 0.3
+        : (est <= 30)
+            ? 0.6
+            : (est <= 60)
+                ? 0.3
+                : 0.0;
+
+    return pri + imp + due + quick;
+  }
+
+  List<Task> recommended({int max = 5}) {
+    final now = DateTime.now();
+    final candidates = tasks
+        .where((t) =>
+            t.status != TaskStatus.completed && t.status != TaskStatus.archived)
+        .toList();
+
+    candidates.sort(
+        (a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
+    return candidates.take(max).toList();
+  }
+
+  // =========================================================
   // Helpers
   // =========================================================
   String _cleanId(String id) => id.replaceAll(RegExp(r'[\[\]#]'), '');
@@ -242,67 +313,53 @@ class TaskController extends GetxController {
   }
 
   void _scheduleAllNotifications(Task t) {
-    notifier.cancelForTask(t.id);
+  notifier.cancelForTask(t.id);
 
-    // if user disabled notifications at task level, skip
-    if (!t.focusPrefs.notificationsEnabled) return;
+  // finished tasks should not keep nudging
+  if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) return;
 
-    final now = DateTime.now();
-    final payload = _payloadForTask(t); // <-- includes subTaskId=null
+  // if user disabled notifications at task level, skip
+  if (!t.focusPrefs.notificationsEnabled) return;
 
-    // ===== singleDay: dueDateTime =====
+  final now = DateTime.now();
+  final payload = _payloadForTask(t); // json with taskId + subTaskId(null)
+
+  // helper: compute "endAt" for today
+  DateTime _todayEndAt() {
     if (t.type == TaskType.singleDay && t.dueDateTime != null) {
-      // remind before due
-      if (t.notify.remindBeforeDue) {
-        final dt = t.dueDateTime!.subtract(t.notify.remindBeforeDueOffset);
-        if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueSoon',
-            dt,
-            "‘${t.title}’ due soon. Wrap up remaining subtasks.",
-            payload: payload,
-          );
-        }
-      }
-
-      // remind on due
-      if (t.notify.remindOnDue) {
-        final dt = t.dueDateTime!;
-        if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueNow',
-            dt,
-            "‘${t.title}’ due today. Final push!",
-            payload: payload,
-          );
-        }
-      }
-
-      // today nudges
-      if (t.isDueToday(now) && t.notify.repeatWhenToday != RepeatGranularity.none) {
-        if (t.notify.repeatWhenToday == RepeatGranularity.hour) {
-          notifier.scheduleHourly(
-            t.id,
-            'todayNudge',
-            t.notify.repeatInterval,
-            "Stay on track: ‘${t.title}’. Start a focus timer.",
-            payload: payload,
-          );
-        } else if (t.notify.repeatWhenToday == RepeatGranularity.day) {
-          notifier.scheduleDaily(
-            t.id,
-            'todayNudgeDaily',
-            "Stay on track: ‘${t.title}’. Start a focus timer.",
-            hour: t.notify.dailyHour ?? 9,
-            minute: t.notify.dailyMinute ?? 0,
-            payload: payload,
-          );
-        }
-      }
-      return;
+      return t.dueDateTime!;
     }
+    if (t.type == TaskType.ranged && t.dueDate != null) {
+      return DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
+    }
+    return DateTime(now.year, now.month, now.day, 23, 59);
+  }
+
+  // ✅ TODAY SMART NUDGES (works for both singleDay & ranged when due today)
+  if (t.isDueToday(now) && t.notify.repeatWhenToday != RepeatGranularity.none) {
+    if (t.notify.repeatWhenToday == RepeatGranularity.hour) {
+      // smart: every N hours, only during 09:00–21:00, stops today
+      notifier.scheduleSmartTodayNudges(
+        taskId: t.id,
+        body: "Due today: ‘${t.title}’. Tap to start focus!",
+        intervalHours: t.notify.repeatInterval <= 0 ? 1 : t.notify.repeatInterval,
+        endAt: _todayEndAt(),
+        payload: payload,
+        startHour: 9,
+        endHour: 21,
+      );
+    } else if (t.notify.repeatWhenToday == RepeatGranularity.day) {
+      // one daily nudge at preferred time
+      notifier.scheduleDaily(
+        t.id,
+        'todayNudgeDaily',
+        "Due today: ‘${t.title}’. Tap to start focus!",
+        hour: t.notify.dailyHour ?? 9,
+        minute: t.notify.dailyMinute ?? 0,
+        payload: payload,
+      );
+    }
+  }
 
     // ===== ranged: startDate + dueDate =====
     if (t.type == TaskType.ranged && t.startDate != null && t.dueDate != null) {
@@ -322,7 +379,8 @@ class TaskController extends GetxController {
 
       // start today (08:00)
       if (t.notify.remindOnStart) {
-        final dt = DateTime(t.startDate!.year, t.startDate!.month, t.startDate!.day, 8, 0);
+        final dt = DateTime(
+            t.startDate!.year, t.startDate!.month, t.startDate!.day, 8, 0);
         if (dt.isAfter(now)) {
           notifier.scheduleOneShot(
             t.id,
@@ -336,7 +394,8 @@ class TaskController extends GetxController {
 
       // due soon (23:59 - offset)
       if (t.notify.remindBeforeDue) {
-        final end = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
+        final end =
+            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
         final dt = end.subtract(t.notify.remindBeforeDueOffset);
         if (dt.isAfter(now)) {
           notifier.scheduleOneShot(
@@ -351,7 +410,8 @@ class TaskController extends GetxController {
 
       // due today (23:59)
       if (t.notify.remindOnDue) {
-        final dt = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
+        final dt =
+            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
         if (dt.isAfter(now)) {
           notifier.scheduleOneShot(
             t.id,
