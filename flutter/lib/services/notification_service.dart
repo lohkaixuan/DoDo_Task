@@ -1,8 +1,10 @@
 // lib/services/notification_service.dart
+import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:get/get.dart';
 
 class NotificationService {
@@ -14,45 +16,68 @@ class NotificationService {
     tz.setLocalLocation(tz.getLocation('Asia/Kuala_Lumpur'));
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    //const ios = DarwinInitializationSettings();
     const settings = InitializationSettings(android: android);
+
     await _plugin.initialize(
       settings,
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        final taskId = response.payload; // payload = task id
-        if (taskId == null || taskId.isEmpty) return;
+        final payload = response.payload;
+        if (payload == null || payload.isEmpty) return;
 
-        // 你要怎么跳转随你，这里给一个最简单的 debug：
-        debugPrint("🔔 Notification clicked payload=$taskId");
-        // 如果你要 GetX 跳转：
-        Get.toNamed('/focus', arguments: {'taskId': taskId});
+        try {
+          final data = jsonDecode(payload);
+          final taskId = data['taskId'];
+          final subTaskId = data['subTaskId'];
+
+          // ✅ jump to Focus Timer
+          Get.toNamed('/focus', arguments: {
+            'taskId': taskId,
+            'subTaskId': subTaskId,
+          });
+        } catch (e) {
+          debugPrint('❌ Invalid payload: $e');
+        }
       },
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
   }
 
-  Future<void> requestPermissionIfNeeded() async {
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-
-    await androidPlugin?.requestNotificationsPermission();
+  // ---------- Permission helpers ----------
+  Future<void> openAppNotificationSettings() async {
+    await openAppSettings();
   }
 
-  int _hash(String input) => input.hashCode & 0x7fffffff;
+  Future<bool> areEnabled() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return await android?.areNotificationsEnabled() ?? true;
+  }
 
+  Future<bool> ensurePermission() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return true;
+
+    final enabled = await android.areNotificationsEnabled() ?? true;
+    if (enabled) return true;
+
+    return await android.requestNotificationsPermission() ?? false;
+  }
+
+  // ---------- IDs ----------
+  int _hash(String input) => input.hashCode & 0x7fffffff;
   int _idOneShot(String taskId, String key) => _hash('$taskId|$key');
   int _idHourly(String taskId, String key) => _hash('$taskId|hourly|$key');
   int _idDaily(String taskId, String key) => _hash('$taskId|daily|$key');
 
+  // ✅ cancel all possible scheduled notifications for a task
   Future<void> cancelForTask(String taskId) async {
-    // ✅ 只取消这个 task 的所有可能通知
     const keys = [
       'dueSoon',
       'dueNow',
       'dueToday',
       'startSoon',
       'startToday',
-      'todayNudge',
       'todayNudgeDaily',
     ];
 
@@ -61,26 +86,13 @@ class NotificationService {
       await _plugin.cancel(_idHourly(taskId, k));
       await _plugin.cancel(_idDaily(taskId, k));
     }
-  }
 
-  // ---------- Common details ----------
-  NotificationDetails _defaultDetails() {
-    const android = AndroidNotificationDetails(
-      'tasks_channel',
-      'Tasks',
-      channelDescription: 'Task reminders and focus nudges',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const ios = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-    return const NotificationDetails(android: android, iOS: ios);
+    // ✅ NEW: cancel smart "today nudges" series
+    // we schedule with keys like todaySmart_0..todaySmart_40
+    for (int i = 0; i < 48; i++) {
+      await _plugin.cancel(_idOneShot(taskId, 'todaySmart_$i'));
+    }
   }
-
-  // Stable hash to turn (taskId|key) into an int ID
 
   // ---------- One-shot ----------
   Future<void> scheduleOneShot(
@@ -107,30 +119,6 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-    );
-  }
-
-  // ---------- Hourly repeating ----------
-  // (If you need "every 2 hours", schedule your own rolling one-shots.)
-  Future<void> scheduleHourly(
-    String taskId,
-    String key,
-    int intervalHours,
-    String body, {
-    String? payload,
-  }) async {
-    // ⚠️ flutter_local_notifications 的 periodic 是固定“每小时/每天/每周”
-    // 我们这里用“每小时”作为基础，如果你想 every N hours，需要更复杂的链式 one-shot。
-    await _plugin.periodicallyShow(
-      _idHourly(taskId, key),
-      'Task Reminder',
-      body,
-      RepeatInterval.hourly,
-      const NotificationDetails(
-        android: AndroidNotificationDetails('tasks', 'Tasks'),
-      ),
-      payload: payload,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
 
@@ -164,7 +152,51 @@ class NotificationService {
     );
   }
 
-  // ---------- Ongoing "Focus" sticky ----------
+  // ✅ NEW: Smart "Due Today" nudges
+  // Schedules multiple one-shots today only (e.g. every N hours between 09:00-21:00).
+  Future<void> scheduleSmartTodayNudges({
+    required String taskId,
+    required String body,
+    required int intervalHours,
+    required DateTime endAt, // usually due time or 23:59
+    required String payload,
+    int startHour = 9,
+    int endHour = 21,
+  }) async {
+    final now = DateTime.now();
+
+    // Align start time to next "nice" moment (next 5 min)
+    DateTime start = now.add(const Duration(minutes: 1));
+    final m = start.minute;
+    final bump = (5 - (m % 5)) % 5;
+    start = start.add(Duration(minutes: bump));
+
+    // Clamp within allowed window today
+    final windowStart = DateTime(now.year, now.month, now.day, startHour, 0);
+    final windowEnd = DateTime(now.year, now.month, now.day, endHour, 0);
+
+    DateTime t = start.isBefore(windowStart) ? windowStart : start;
+    final hardEnd = endAt.isBefore(windowEnd) ? endAt : windowEnd;
+
+    if (!t.isBefore(hardEnd)) return;
+
+    int i = 0;
+    while (t.isBefore(hardEnd) && i < 48) {
+      await scheduleOneShot(
+        taskId,
+        'todaySmart_$i',
+        t,
+        body,
+        payload: payload,
+      );
+
+      // next tick
+      t = t.add(Duration(hours: intervalHours <= 0 ? 1 : intervalHours));
+      i++;
+    }
+  }
+
+  // ---------- Focus ongoing ----------
   Future<void> showFocusOngoing({
     required int id,
     required String title,
@@ -191,7 +223,7 @@ class NotificationService {
   Future<void> cancelId(int id) async => _plugin.cancel(id);
 
   @pragma('vm:entry-point')
-  void notificationTapBackground(NotificationResponse response) {
-    // 背景点通知也会进来（Android）
+  static void notificationTapBackground(NotificationResponse response) {
+    // Android background tap entrypoint
   }
 }
