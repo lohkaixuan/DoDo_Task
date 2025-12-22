@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../controller/taskController.dart';
 import '../../controller/petController.dart';
+import '../services/notification_service.dart';
 
 
 class Settings extends StatelessWidget {
@@ -75,6 +76,31 @@ class Settings extends StatelessWidget {
                         backgroundColor: Colors.red,
                       ),
                       child: const Text('Logout'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+           Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('test', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Logout'),
+                    trailing: ElevatedButton(
+                      onPressed: () async {
+                       await Get.find<NotificationService>().testNow();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: const Text('test'),
                     ),
                   ),
                 ],

@@ -51,8 +51,11 @@ class TaskController extends GetxController {
 
       // schedule notifications for all tasks
       for (final t in list) {
-        _scheduleAllNotifications(t);
+        await _scheduleAllNotifications(t);
+        print(
+            "🔍 task=${t.title} type=${t.type} dueDateTime=${t.dueDateTime} start=${t.startDate} dueDate=${t.dueDate}");
       }
+      await notifier.debugPending();
     } catch (e) {
       print('⚠️ fetchTasks failed: $e');
     }
@@ -65,7 +68,7 @@ class TaskController extends GetxController {
     // local first
     tasks.add(t);
     update();
-    _scheduleAllNotifications(t);
+    await _scheduleAllNotifications(t);
 
     try {
       final body = t.toJson();
@@ -99,7 +102,7 @@ class TaskController extends GetxController {
     update();
 
     _petReactOnStatus(before, t);
-    _scheduleAllNotifications(t);
+    await _scheduleAllNotifications(t);
 
     final body = t.toJson();
     body.remove('id');
@@ -172,7 +175,7 @@ class TaskController extends GetxController {
   // Delete
   // =========================================================
   Future<void> removeById(String id) async {
-    notifier.cancelForTask(id);
+    await notifier.cancelForTask(id);
     tasks.removeWhere((x) => x.id == id);
     update();
 
@@ -185,9 +188,9 @@ class TaskController extends GetxController {
 
   Future<void> remove(Task t) => removeById(t.id);
 
-  void clearAll() {
+  Future<void> clearAll() async {
     for (final t in tasks) {
-      notifier.cancelForTask(t.id);
+      await notifier.cancelForTask(t.id);
     }
     tasks.clear();
     update();
@@ -305,6 +308,7 @@ class TaskController extends GetxController {
   // =========================================================
   String _cleanId(String id) => id.replaceAll(RegExp(r'[\[\]#]'), '');
 
+  // --- helper: payload (keep subTaskId for deep-link) ---
   String _payloadForTask(Task t, {String? subTaskId}) {
     return jsonEncode({
       'taskId': t.id,
@@ -312,117 +316,168 @@ class TaskController extends GetxController {
     });
   }
 
-  void _scheduleAllNotifications(Task t) {
-  notifier.cancelForTask(t.id);
+// --- helper: date-only compare ---
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
-  // finished tasks should not keep nudging
-  if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) return;
+  Future<void> _scheduleAllNotifications(Task t) async {
+    // 1) cancel old schedules first
+    await notifier.cancelForTask(t.id);
 
-  // if user disabled notifications at task level, skip
-  if (!t.focusPrefs.notificationsEnabled) return;
+    // 2) skip if completed/archived
+    if (t.status == TaskStatus.completed || t.status == TaskStatus.archived)
+      return;
 
-  final now = DateTime.now();
-  final payload = _payloadForTask(t); // json with taskId + subTaskId(null)
+    // 3) skip if task-level notifications disabled
+    if (!t.focusPrefs.notificationsEnabled) return;
 
-  // helper: compute "endAt" for today
-  DateTime _todayEndAt() {
+    // 4) ensure permission (do not block scheduling hard, but good practice)
+    await notifier.ensurePermission();
+
+    final now = DateTime.now();
+    final payload = _payloadForTask(t);
+
+    // -------------------------
+    // A) singleDay + dueDateTime
+    // -------------------------
     if (t.type == TaskType.singleDay && t.dueDateTime != null) {
-      return t.dueDateTime!;
-    }
+      final due = t.dueDateTime!;
+      final dueDay0900 = DateTime(due.year, due.month, due.day, 9, 0);  
+  // ✅ DueToday @ 09:00 on the due day (catch up if today & already past 09:00)
+  if (_isSameDay(due, now)) {
+    await notifier.scheduleDueToday0900OrCatchUp(
+      taskId: t.id,
+      today: now,
+      title: 'Task Reminder',
+      body: "Due today: ‘${t.title}’. Tap to start focus!",
+      payload: payload,
+    );
+  } else {
+    await notifier.scheduleOneShot(
+      taskId: t.id,
+      key: 'dueToday',
+      when: dueDay0900,
+      title: 'Task Reminder',
+      body: "Due today: ‘${t.title}’. Tap to start focus!",
+      payload: payload,
+    );
+  }
+
+  // ✅ DueTime (safe)
+  // - If due already passed but still today -> fire in 1 minute
+  // - If due is in the past and not today -> skip
+  if (!_isSameDay(due, now) && !due.isAfter(now)) {
+    // past day -> skip dueTime
+  } else {
+    final dueSafe = (_isSameDay(due, now) && !due.isAfter(now))
+        ? now.add(const Duration(minutes: 1))
+        : due;
+
+    await notifier.scheduleOneShot(
+      taskId: t.id,
+      key: 'dueTime',
+      when: dueSafe,
+      title: 'Task Reminder',
+      body: "Due now: ‘${t.title}’. Final push! Tap to focus.",
+      payload: payload,
+    );
+  }
+
+  // ✅ every 2 hours reminder (only if today + no start + due after 09:00)
+  final noStart = (t.startDate == null);
+  final startWindow = DateTime(due.year, due.month, due.day, 9, 0);
+  if (noStart && _isSameDay(due, now) && due.isAfter(startWindow)) {
+    await notifier.scheduleEveryNHoursToday(
+      taskId: t.id,
+      everyHours: 2,
+      endAt: due,
+      title: 'Task Reminder',
+      body: "Due today: ‘${t.title}’. Tap to start focus!",
+      payload: payload,
+      startHour: 9,
+      endHour: 21,
+    );
+  }
+
+  return; // done singleDay
+}
+
+    // -------------------------
+    // B) ranged + dueDate
+    // -------------------------
     if (t.type == TaskType.ranged && t.dueDate != null) {
-      return DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
-    }
-    return DateTime(now.year, now.month, now.day, 23, 59);
-  }
+      final dueDate = t.dueDate!;
+      final dueToday0900 =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
+      final dueTime =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
 
-  // ✅ TODAY SMART NUDGES (works for both singleDay & ranged when due today)
-  if (t.isDueToday(now) && t.notify.repeatWhenToday != RepeatGranularity.none) {
-    if (t.notify.repeatWhenToday == RepeatGranularity.hour) {
-      // smart: every N hours, only during 09:00–21:00, stops today
-      notifier.scheduleSmartTodayNudges(
+      // If already past due date end, don't schedule
+      if (!dueTime.isAfter(now)) return;
+
+      // ✅ DueToday @ 09:00 on due date
+      if (_isSameDay(dueDate, now)) {
+        await notifier.scheduleDueToday0900OrCatchUp(
+          taskId: t.id,
+          today: now,
+          title: 'Task Reminder',
+          body: "Due today: ‘${t.title}’. Tap to start focus!",
+          payload: payload,
+        );
+
+        // On the due day, you wanted it to behave like the “dueDateTime procedure”
+        // -> we do every 2 hours today until 23:59
+        await notifier.scheduleEveryNHoursToday(
+          taskId: t.id,
+          everyHours: 2,
+          endAt: dueTime,
+          title: 'Task Reminder',
+          body: "Due today: ‘${t.title}’. Tap to focus!",
+          payload: payload,
+          startHour: 9,
+          endHour: 21,
+        );
+      } else {
+        await notifier.scheduleOneShot(
+          taskId: t.id,
+          key: 'dueToday',
+          when: dueToday0900,
+          title: 'Task Reminder',
+          body: "Due today: ‘${t.title}’. Tap to start focus!",
+          payload: payload,
+        );
+      }
+
+      // ✅ DueTime @ dueDate 23:59
+      await notifier.scheduleOneShot(
         taskId: t.id,
-        body: "Due today: ‘${t.title}’. Tap to start focus!",
-        intervalHours: t.notify.repeatInterval <= 0 ? 1 : t.notify.repeatInterval,
-        endAt: _todayEndAt(),
-        payload: payload,
-        startHour: 9,
-        endHour: 21,
-      );
-    } else if (t.notify.repeatWhenToday == RepeatGranularity.day) {
-      // one daily nudge at preferred time
-      notifier.scheduleDaily(
-        t.id,
-        'todayNudgeDaily',
-        "Due today: ‘${t.title}’. Tap to start focus!",
-        hour: t.notify.dailyHour ?? 9,
-        minute: t.notify.dailyMinute ?? 0,
+        key: 'dueTime',
+        when: dueTime,
+        title: 'Task Reminder',
+        body: "Due now: ‘${t.title}’. It’s the deadline (23:59).",
         payload: payload,
       );
+
+      // ✅ Daily reminder once/day until due date (09:00)
+      // Note: With a repeating daily schedule, Android will keep it until you cancel.
+      // In your flow, you already call cancelForTask() on update/complete/fetch, so it will
+      // naturally stop once task becomes completed/archived or app re-schedules after due.
+      await notifier.scheduleDailyUntilDue(
+        taskId: t.id,
+        hour: 9,
+        minute: 0,
+        title: 'Task Reminder',
+        body: "Reminder: work on ‘${t.title}’ today. Tap to focus.",
+        payload: payload,
+      );
+
+      return; // done
     }
-  }
 
-    // ===== ranged: startDate + dueDate =====
-    if (t.type == TaskType.ranged && t.startDate != null && t.dueDate != null) {
-      // start soon
-      if (t.notify.remindBeforeStart) {
-        final dt = t.startDate!.subtract(t.notify.remindBeforeStartOffset);
-        if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'startSoon',
-            dt,
-            "‘${t.title}’ starts soon. Plan your first session.",
-            payload: payload,
-          );
-        }
-      }
-
-      // start today (08:00)
-      if (t.notify.remindOnStart) {
-        final dt = DateTime(
-            t.startDate!.year, t.startDate!.month, t.startDate!.day, 8, 0);
-        if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'startToday',
-            dt,
-            "‘${t.title}’ starts today. Kick off with 25 min!",
-            payload: payload,
-          );
-        }
-      }
-
-      // due soon (23:59 - offset)
-      if (t.notify.remindBeforeDue) {
-        final end =
-            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
-        final dt = end.subtract(t.notify.remindBeforeDueOffset);
-        if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueSoon',
-            dt,
-            "‘${t.title}’ due soon. Wrap up remaining subtasks.",
-            payload: payload,
-          );
-        }
-      }
-
-      // due today (23:59)
-      if (t.notify.remindOnDue) {
-        final dt =
-            DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59);
-        if (dt.isAfter(now)) {
-          notifier.scheduleOneShot(
-            t.id,
-            'dueToday',
-            dt,
-            "‘${t.title}’ due today. Final push!",
-            payload: payload,
-          );
-        }
-      }
-    }
+    // -------------------------
+    // C) fallback (no due info)
+    // -------------------------
+    // If task has no dueDateTime/dueDate, do nothing
   }
 
   void _petReactOnStatus(Task before, Task after) {
