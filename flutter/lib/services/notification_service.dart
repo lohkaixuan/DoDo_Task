@@ -13,13 +13,23 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   // -----------------------------
-  // Channel (Android)
+  // Channels (Android)
   // -----------------------------
   static const String taskChannelId = 'tasks_channel';
   static const String taskChannelName = 'Tasks';
 
   static const String focusChannelId = 'focus_timer';
   static const String focusChannelName = 'Focus timer';
+
+  // -----------------------------
+  // Keys (keep consistent everywhere)
+  // -----------------------------
+  static const String kDueToday = 'dueToday';
+  static const String kDueTime = 'dueTime';
+  static const String kDailyUntilDue = 'dailyUntilDue';
+  static const String kTodayRepeatPrefix = 'todayRepeat_';
+
+  static const int maxTodayRepeats = 48;
 
   // -----------------------------
   // Init
@@ -108,44 +118,49 @@ class NotificationService {
   }
 
   // -----------------------------
-  // ID helpers (stable per task+key)
+  // Stable ID helpers (IMPORTANT)
+  // hashCode is NOT stable across app restarts.
+  // Use FNV-1a 32-bit
   // -----------------------------
-  int _hash(String input) => input.hashCode & 0x7fffffff;
-  int _idOneShot(String taskId, String key) => _hash('$taskId|$key');
-  int _idDaily(String taskId, String key) => _hash('$taskId|daily|$key');
+  int _stableHash32(String s) {
+    const int fnvPrime = 0x01000193;
+    int hash = 0x811C9DC5;
+    for (final c in s.codeUnits) {
+      hash ^= c;
+      hash = (hash * fnvPrime) & 0xFFFFFFFF;
+    }
+    return hash & 0x7FFFFFFF;
+  }
+
+  int _idOneShot(String taskId, String key) => _stableHash32('$taskId|$key');
+  int _idDaily(String taskId, String key) => _stableHash32('$taskId|daily|$key');
 
   // -----------------------------
-  // Cancel all possible schedules for a task
+  // Cancel all schedules for a task
   // -----------------------------
   Future<void> cancelForTask(String taskId) async {
-    // one-shot keys (must match all we ever schedule)
+    // one-shot keys scheduled by TaskController
     const oneShotKeys = [
-      'dueToday',
-      'dueTime',
-      'dueSoon',
-      'startSoon',
-      'startToday',
-      'todayRepeat_0', // today repeats series
+      kDueToday,
+      kDueTime,
     ];
 
-    // daily keys
+    // repeating daily keys
     const dailyKeys = [
-      'dailyUntilDue',
+      kDailyUntilDue,
     ];
 
-    // cancel one-shots
     for (final k in oneShotKeys) {
       await _plugin.cancel(_idOneShot(taskId, k));
     }
 
-    // cancel daily
     for (final k in dailyKeys) {
       await _plugin.cancel(_idDaily(taskId, k));
     }
 
-    // ✅ cancel today repeat series (we allow up to 48)
-    for (int i = 0; i < 48; i++) {
-      await _plugin.cancel(_idOneShot(taskId, 'todayRepeat_$i'));
+    // today repeats
+    for (int i = 0; i < maxTodayRepeats; i++) {
+      await _plugin.cancel(_idOneShot(taskId, '$kTodayRepeatPrefix$i'));
     }
 
     debugPrint("🧹 cancelForTask done: task=$taskId");
@@ -153,8 +168,7 @@ class NotificationService {
 
   // -----------------------------
   // Core scheduling wrappers
-  //   - default inexactAllowWhileIdle to avoid exact-alarm crash
-  //   - logs + try/catch
+  //   - inexactAllowWhileIdle avoids exact-alarm permission issues
   // -----------------------------
   Future<void> scheduleOneShot({
     required String taskId,
@@ -188,14 +202,13 @@ class NotificationService {
       );
 
       debugPrint(
-          "✅ scheduled one-shot: task=$taskId key=$key at=$when (tz=${tzWhen.toString()})");
+          "✅ scheduled one-shot: task=$taskId key=$key at=$when (tz=$tzWhen)");
     } catch (e) {
       debugPrint("❌ scheduleOneShot failed: task=$taskId key=$key err=$e");
     }
   }
 
-  /// A daily repeating reminder at time (HH:mm).
-  /// Note: Android repeats until you cancel manually.
+  /// Daily repeating at HH:mm (Android repeats until cancel).
   Future<void> scheduleDailyAtTime({
     required String taskId,
     required String key,
@@ -238,11 +251,11 @@ class NotificationService {
   }
 
   // -----------------------------
-  // New mechanism helpers
+  // Task scheduling helpers
   // -----------------------------
 
-  /// DueToday: "today 09:00" BUT if user creates it after 09:00,
-  /// we "catch up" by scheduling 1 minute later (only if it's due today).
+  /// DueToday: schedule at 09:00 today; if it's already past 09:00,
+  /// schedule 1 minute later (only for "due today" behavior).
   Future<void> scheduleDueToday0900OrCatchUp({
     required String taskId,
     required DateTime today,
@@ -251,15 +264,15 @@ class NotificationService {
     required String payload,
   }) async {
     final target0900 = DateTime(today.year, today.month, today.day, 9, 0);
+    final now = DateTime.now();
 
-    // If already past 09:00 today, schedule 1 minute later (so user can see it)
-    final when = (DateTime.now().isAfter(target0900))
-        ? DateTime.now().add(const Duration(minutes: 1))
+    final when = now.isAfter(target0900)
+        ? now.add(const Duration(minutes: 1))
         : target0900;
 
     await scheduleOneShot(
       taskId: taskId,
-      key: 'dueToday',
+      key: kDueToday,
       when: when,
       title: title,
       body: body,
@@ -267,8 +280,8 @@ class NotificationService {
     );
   }
 
-  /// Schedule repeats today only: every N hours between [startHour..endHour],
-  /// stops at endAt (or window end), max 48.
+  /// Repeats today only: every N hours between [startHour..endHour],
+  /// stops at endAt (or window end). Max [maxTodayRepeats].
   Future<void> scheduleEveryNHoursToday({
     required String taskId,
     required int everyHours,
@@ -281,11 +294,10 @@ class NotificationService {
   }) async {
     final now = DateTime.now();
 
-    // clamp window
     final windowStart = DateTime(now.year, now.month, now.day, startHour, 0);
     final windowEnd = DateTime(now.year, now.month, now.day, endHour, 0);
 
-    // start time = next 5-min aligned moment
+    // Start time = next 5-min aligned moment (>= now+1min)
     DateTime t = now.add(const Duration(minutes: 1));
     final bump = (5 - (t.minute % 5)) % 5;
     t = t.add(Duration(minutes: bump));
@@ -298,13 +310,13 @@ class NotificationService {
       return;
     }
 
-    int i = 0;
     final step = Duration(hours: everyHours <= 0 ? 2 : everyHours);
 
-    while (t.isBefore(hardEnd) && i < 48) {
+    int i = 0;
+    while (t.isBefore(hardEnd) && i < maxTodayRepeats) {
       await scheduleOneShot(
         taskId: taskId,
-        key: 'todayRepeat_$i',
+        key: '$kTodayRepeatPrefix$i',
         when: t,
         title: title,
         body: body,
@@ -318,9 +330,7 @@ class NotificationService {
   }
 
   /// Ranged tasks: daily reminder until due date.
-  /// Implementation: a repeating daily notification at 09:00.
-  /// It will stop when you cancel (you already cancel on update/complete),
-  /// and after due date you can re-fetch/reschedule to clean it.
+  /// Implementation: a repeating daily notification at HH:mm.
   Future<void> scheduleDailyUntilDue({
     required String taskId,
     required int hour,
@@ -331,7 +341,7 @@ class NotificationService {
   }) async {
     await scheduleDailyAtTime(
       taskId: taskId,
-      key: 'dailyUntilDue',
+      key: kDailyUntilDue,
       hour: hour,
       minute: minute,
       title: title,
@@ -347,14 +357,15 @@ class NotificationService {
     final list = await _plugin.pendingNotificationRequests();
     debugPrint("📌 pending count=${list.length}");
     for (final p in list) {
-      debugPrint("📌 id=${p.id} title=${p.title} body=${p.body} payload=${p.payload}");
+      debugPrint(
+          "📌 id=${p.id} title=${p.title} body=${p.body} payload=${p.payload}");
     }
   }
 
   Future<void> cancelId(int id) async => _plugin.cancel(id);
 
   // -----------------------------
-  // Test immediate show (works even if scheduling fails)
+  // Test immediate show
   // -----------------------------
   Future<void> testNow() async {
     await _plugin.show(
@@ -402,6 +413,7 @@ class NotificationService {
 
   @pragma('vm:entry-point')
   static void notificationTapBackground(NotificationResponse response) {
-    // Android background tap entrypoint
+    // If you want: store payload to prefs and handle on next app open.
+    // debugPrint('BG tap payload=${response.payload}');
   }
 }
