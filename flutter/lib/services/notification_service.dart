@@ -1,29 +1,66 @@
 // lib/services/notification_service.dart
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:get/get.dart';
 
 class NotificationService {
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
 
-  NotificationService() {
+  Future<void> init() async {
     tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Asia/Kuala_Lumpur'));
+
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    //const ios = DarwinInitializationSettings();
+    const settings = InitializationSettings(android: android);
+    await _plugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        final taskId = response.payload; // payload = task id
+        if (taskId == null || taskId.isEmpty) return;
+
+        // 你要怎么跳转随你，这里给一个最简单的 debug：
+        debugPrint("🔔 Notification clicked payload=$taskId");
+        // 如果你要 GetX 跳转：
+        Get.toNamed('/focus', arguments: {'taskId': taskId});
+      },
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+    );
   }
 
-  Future<void> init({Future<void> Function(String payload)? onSelectPayload}) async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
-    const init = InitializationSettings(android: android, iOS: ios);
+  Future<void> requestPermissionIfNeeded() async {
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
 
-    await _plugin.initialize(
-      init,
-      onDidReceiveNotificationResponse: (resp) async {
-        final payload = resp.payload;
-        if (onSelectPayload != null && payload != null) {
-          await onSelectPayload(payload);
-        }
-      },
-    );
+    await androidPlugin?.requestNotificationsPermission();
+  }
+
+  int _hash(String input) => input.hashCode & 0x7fffffff;
+
+  int _idOneShot(String taskId, String key) => _hash('$taskId|$key');
+  int _idHourly(String taskId, String key) => _hash('$taskId|hourly|$key');
+  int _idDaily(String taskId, String key) => _hash('$taskId|daily|$key');
+
+  Future<void> cancelForTask(String taskId) async {
+    // ✅ 只取消这个 task 的所有可能通知
+    const keys = [
+      'dueSoon',
+      'dueNow',
+      'dueToday',
+      'startSoon',
+      'startToday',
+      'todayNudge',
+      'todayNudgeDaily',
+    ];
+
+    for (final k in keys) {
+      await _plugin.cancel(_idOneShot(taskId, k));
+      await _plugin.cancel(_idHourly(taskId, k));
+      await _plugin.cancel(_idDaily(taskId, k));
+    }
   }
 
   // ---------- Common details ----------
@@ -44,18 +81,6 @@ class NotificationService {
   }
 
   // Stable hash to turn (taskId|key) into an int ID
-  int _hash(String s) {
-    int h = 0;
-    for (var i = 0; i < s.length; i++) {
-      h = 0x1fffffff & (h + s.codeUnitAt(i));
-      h = 0x1fffffff & (h + ((0x0007ffff & h) << 10));
-      h ^= (h >> 6);
-    }
-    h = 0x1fffffff & (h + ((0x03ffffff & h) << 3));
-    h ^= (h >> 11);
-    h = 0x1fffffff & (h + ((0x00003fff & h) << 15));
-    return h & 0x7fffffff;
-  }
 
   // ---------- One-shot ----------
   Future<void> scheduleOneShot(
@@ -65,18 +90,23 @@ class NotificationService {
     String body, {
     String? payload,
   }) async {
-    final id = _hash('$taskId|$key');
-    final tzz = tz.TZDateTime.from(when, tz.local);
     await _plugin.zonedSchedule(
-      id,
-      'Reminder',
+      _idOneShot(taskId, key),
+      'Task Reminder',
       body,
-      tzz,
-      _defaultDetails(),
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: null,
-      payload: payload ?? taskId,
+      tz.TZDateTime.from(when, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'tasks',
+          'Tasks',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+      payload: payload,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -85,19 +115,22 @@ class NotificationService {
   Future<void> scheduleHourly(
     String taskId,
     String key,
-    int everyNHours,
+    int intervalHours,
     String body, {
     String? payload,
   }) async {
-    final id = _hash('$taskId|hourly|$key');
+    // ⚠️ flutter_local_notifications 的 periodic 是固定“每小时/每天/每周”
+    // 我们这里用“每小时”作为基础，如果你想 every N hours，需要更复杂的链式 one-shot。
     await _plugin.periodicallyShow(
-      id,
-      'Reminder',
+      _idHourly(taskId, key),
+      'Task Reminder',
       body,
       RepeatInterval.hourly,
-      _defaultDetails(),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: payload ?? taskId,
+      const NotificationDetails(
+        android: AndroidNotificationDetails('tasks', 'Tasks'),
+      ),
+      payload: payload,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
 
@@ -110,21 +143,24 @@ class NotificationService {
     int minute = 0,
     String? payload,
   }) async {
-    final id = _hash('$taskId|daily|$key');
     final now = tz.TZDateTime.now(tz.local);
-    var next = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (!next.isAfter(now)) next = next.add(const Duration(days: 1));
+    var next =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (next.isBefore(now)) next = next.add(const Duration(days: 1));
 
     await _plugin.zonedSchedule(
-      id,
-      'Reminder',
+      _idDaily(taskId, key),
+      'Task Reminder',
       body,
       next,
-      _defaultDetails(),
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      const NotificationDetails(
+        android: AndroidNotificationDetails('tasks', 'Tasks'),
+      ),
+      payload: payload,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
-      payload: payload ?? taskId,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -154,10 +190,8 @@ class NotificationService {
 
   Future<void> cancelId(int id) async => _plugin.cancel(id);
 
-  // Simple strategy: cancel all notifications for a task (and generally).
-  // If you want fine-grained cancel per (taskId,key), store their IDs and cancel them by id.
-  Future<void> cancelForTask(String taskId) async {
-    await _plugin.cancelAll();
+  @pragma('vm:entry-point')
+  void notificationTapBackground(NotificationResponse response) {
+    // 背景点通知也会进来（Android）
   }
-  
 }

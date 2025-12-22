@@ -10,6 +10,8 @@ import '../models/task.dart';
 import '../widgets/pad.dart';
 import '../widgets/pet_header.dart';
 import '../services/notification_service.dart';
+import 'package:collection/collection.dart';
+
 
 class FocusTimerScreen extends StatefulWidget {
   const FocusTimerScreen({super.key});
@@ -62,11 +64,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     pet = Get.find<PetController>();
     notifier = Get.find<NotificationService>();
 
-    final args = Get.arguments;
-    if (args is Map) {
-      taskId = args['taskId'] as String?;
-      subTaskId = args['subTaskId'] as String?;
-    }
+    final args = Get.arguments as Map? ?? {};
+    this.taskId = args['taskId'] as String?;
+    subTaskId = args['subTaskId'] as String?; // ✅ 如果你未来也想跳到某个 subtask
 
     final task = _task;
     if (task != null) {

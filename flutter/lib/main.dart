@@ -1,7 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:collection/collection.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api/dioclient.dart';
 import 'controller/authController.dart';
@@ -13,6 +13,10 @@ import 'services/notification_service.dart';
 import 'route/page.dart';            // ← your AppPages (keep!)
 import 'screens/focus_timer_screen.dart';
 import 'binding/app_binding.dart';  // ← your AppBinding (keep!)
+
+
+final NotificationService notifier = Get.put(NotificationService());
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -29,17 +33,8 @@ Future<void> main() async {
     permanent: true,
   );
 
-  // Handle notification taps -> Focus screen
-  await Get.find<NotificationService>().init(
-    onSelectPayload: (payload) async {
-      final taskId = payload;
-      final tc = Get.find<TaskController>();
-      final t = tc.tasks.firstWhereOrNull((x) => x.id == taskId);
-      if (t != null) {
-        Get.toNamed('/focus', arguments: {'taskId': t.id});
-      }
-    },
-  );
+  await notifier.init();
+  await notifier.requestPermissionIfNeeded();
 
   runApp(const MyApp());
 }
