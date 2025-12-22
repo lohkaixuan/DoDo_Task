@@ -1,42 +1,93 @@
 // lib/services/notification_service.dart
-import 'package:flutter/widgets.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:get/get.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:get/get.dart';
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
+    // ✅ timezone
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Kuala_Lumpur'));
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    //const ios = DarwinInitializationSettings();
     const settings = InitializationSettings(android: android);
+
     await _plugin.initialize(
       settings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        final taskId = response.payload; // payload = task id
-        if (taskId == null || taskId.isEmpty) return;
-
-        // 你要怎么跳转随你，这里给一个最简单的 debug：
-        debugPrint("🔔 Notification clicked payload=$taskId");
-        // 如果你要 GetX 跳转：
-        Get.toNamed('/focus', arguments: {'taskId': taskId});
-      },
+      onDidReceiveNotificationResponse: _onTapForeground,
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
   }
 
-  Future<void> requestPermissionIfNeeded() async {
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+  // ========= Permissions (Android 13+) =========
+
+  Future<bool> areEnabled() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return await android?.areNotificationsEnabled() ?? true;
+  }
+
+  Future<bool> ensurePermission() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
 
-    await androidPlugin?.requestNotificationsPermission();
+    if (android == null) return true;
+
+    final enabled = await android.areNotificationsEnabled() ?? true;
+    if (enabled) return true;
+
+    final granted = await android.requestNotificationsPermission() ?? false;
+    return granted;
   }
+
+  Future<void> requestPermissionIfNeeded() async {
+    await ensurePermission();
+  }
+
+  // ========= Tap handling =========
+
+  void _onTapForeground(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) return;
+
+    // payload can be "taskId" (old) OR JSON {"taskId":"..","subTaskId":".."}
+    try {
+      if (payload.trim().startsWith('{')) {
+        final data = jsonDecode(payload);
+        final taskId = data['taskId'] as String?;
+        final subTaskId = data['subTaskId'] as String?;
+
+        if (taskId == null || taskId.isEmpty) return;
+
+        Get.toNamed(
+          '/focus',
+          arguments: {
+            'taskId': taskId,
+            'subTaskId': subTaskId,
+          },
+        );
+      } else {
+        // backward compatible
+        Get.toNamed('/focus', arguments: {'taskId': payload});
+      }
+    } catch (e) {
+      debugPrint('❌ Invalid notification payload: $e payload=$payload');
+    }
+  }
+
+  @pragma('vm:entry-point')
+  static void notificationTapBackground(NotificationResponse response) {
+    // Android background tap entry-point.
+    // We keep it empty on purpose to avoid navigation issues in background isolate.
+  }
+
+  // ========= IDs =========
 
   int _hash(String input) => input.hashCode & 0x7fffffff;
 
@@ -45,7 +96,6 @@ class NotificationService {
   int _idDaily(String taskId, String key) => _hash('$taskId|daily|$key');
 
   Future<void> cancelForTask(String taskId) async {
-    // ✅ 只取消这个 task 的所有可能通知
     const keys = [
       'dueSoon',
       'dueNow',
@@ -63,26 +113,8 @@ class NotificationService {
     }
   }
 
-  // ---------- Common details ----------
-  NotificationDetails _defaultDetails() {
-    const android = AndroidNotificationDetails(
-      'tasks_channel',
-      'Tasks',
-      channelDescription: 'Task reminders and focus nudges',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const ios = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-    return const NotificationDetails(android: android, iOS: ios);
-  }
+  // ========= Schedulers =========
 
-  // Stable hash to turn (taskId|key) into an int ID
-
-  // ---------- One-shot ----------
   Future<void> scheduleOneShot(
     String taskId,
     String key,
@@ -99,6 +131,7 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'tasks',
           'Tasks',
+          channelDescription: 'Task reminders',
           importance: Importance.max,
           priority: Priority.high,
         ),
@@ -110,8 +143,8 @@ class NotificationService {
     );
   }
 
-  // ---------- Hourly repeating ----------
-  // (If you need "every 2 hours", schedule your own rolling one-shots.)
+  /// NOTE: flutter_local_notifications periodicShow is fixed interval (hourly/daily/weekly).
+  /// We keep intervalHours param for your API shape, but it's still hourly repeating.
   Future<void> scheduleHourly(
     String taskId,
     String key,
@@ -119,8 +152,6 @@ class NotificationService {
     String body, {
     String? payload,
   }) async {
-    // ⚠️ flutter_local_notifications 的 periodic 是固定“每小时/每天/每周”
-    // 我们这里用“每小时”作为基础，如果你想 every N hours，需要更复杂的链式 one-shot。
     await _plugin.periodicallyShow(
       _idHourly(taskId, key),
       'Task Reminder',
@@ -134,7 +165,6 @@ class NotificationService {
     );
   }
 
-  // ---------- Daily at a time ----------
   Future<void> scheduleDaily(
     String taskId,
     String key,
@@ -144,8 +174,7 @@ class NotificationService {
     String? payload,
   }) async {
     final now = tz.TZDateTime.now(tz.local);
-    var next =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    var next = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
     if (next.isBefore(now)) next = next.add(const Duration(days: 1));
 
     await _plugin.zonedSchedule(
@@ -164,11 +193,13 @@ class NotificationService {
     );
   }
 
-  // ---------- Ongoing "Focus" sticky ----------
+  // ========= Focus ongoing =========
+
   Future<void> showFocusOngoing({
     required int id,
     required String title,
     required int minutesLeft,
+    String? payload, // optional: allow tapping focus ongoing too
   }) async {
     const android = AndroidNotificationDetails(
       'focus_timer',
@@ -180,18 +211,15 @@ class NotificationService {
       onlyAlertOnce: true,
       visibility: NotificationVisibility.public,
     );
+
     await _plugin.show(
       id,
       'Focusing: $title',
       'Time left: ${minutesLeft}m',
       const NotificationDetails(android: android),
+      payload: payload,
     );
   }
 
   Future<void> cancelId(int id) async => _plugin.cancel(id);
-
-  @pragma('vm:entry-point')
-  void notificationTapBackground(NotificationResponse response) {
-    // 背景点通知也会进来（Android）
-  }
 }

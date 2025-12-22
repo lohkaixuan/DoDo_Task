@@ -14,14 +14,14 @@ import 'route/page.dart';            // ← your AppPages (keep!)
 import 'screens/focus_timer_screen.dart';
 import 'binding/app_binding.dart';  // ← your AppBinding (keep!)
 
-
-final NotificationService notifier = Get.put(NotificationService());
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Services
-  Get.put<NotificationService>(NotificationService(), permanent: true);
+  final notifier = Get.put<NotificationService>(
+    NotificationService(),
+    permanent: true,
+  );
   Get.put<DioClient>(DioClient(), permanent: true);
 
   // Controllers
@@ -34,19 +34,67 @@ Future<void> main() async {
   );
 
   await notifier.init();
-  await notifier.requestPermissionIfNeeded();
 
   runApp(const MyApp());
 }
+
+Future<void> promptEnableNotificationsIfNeeded() async {
+  final notifier = Get.find<NotificationService>();
+
+  final enabled = await notifier.areEnabled();
+  if (enabled) return;
+
+  Get.dialog(
+    AlertDialog(
+      title: const Text('Enable Notifications'),
+      content: const Text(
+        'To receive task reminders and focus alerts, please enable notifications.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Later'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final ok = await notifier.ensurePermission();
+            Get.back();
+
+            if (!ok) {
+              Get.snackbar(
+                'Permission not granted',
+                'You can enable it in Settings > Apps > Notifications.',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            } else {
+              Get.snackbar(
+                'Enabled!',
+                'Task reminders are ready 🦈',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            }
+          },
+          child: const Text('Enable'),
+        ),
+      ],
+    ),
+    barrierDismissible: true,
+  );
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      promptEnableNotificationsIfNeeded();
+    });
+
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Dodo Task',
-      initialRoute: AppPages.initial,   // '/login' for now (you can switch to '/splash')
+      initialRoute: AppPages.initial,
       getPages: AppPages.routes,
     );
   }

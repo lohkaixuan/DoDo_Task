@@ -240,7 +240,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   }
 
   // ---- UI helpers ----
-
   String _title() {
     final task = _task;
     if (task == null) return 'Focus';
