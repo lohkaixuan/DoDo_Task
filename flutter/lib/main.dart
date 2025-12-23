@@ -10,6 +10,7 @@ import 'controller/taskController.dart';
 import 'controller/petController.dart';
 import 'controller/walletController.dart';
 import 'services/notification_service.dart';
+import 'package:get_storage/get_storage.dart';
 
 import 'route/page.dart';            // ← your AppPages (keep!)
 import 'screens/focus_timer_screen.dart';
@@ -17,6 +18,7 @@ import 'binding/app_binding.dart';  // ← your AppBinding (keep!)
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await GetStorage.init();
 
   // Services
   final notifier = Get.put<NotificationService>(

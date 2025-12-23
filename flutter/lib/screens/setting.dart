@@ -1,111 +1,122 @@
+// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../controller/settingController.dart';
 
-import '../../controller/taskController.dart';
-import '../../controller/petController.dart';
-import '../services/notification_service.dart';
-
-
-class Settings extends StatelessWidget {
-  const Settings({super.key});
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final pet = Get.find<PetController>();
-    final tc = Get.find<TaskController>();
+    final settingC = Get.find<SettingController>();
 
-    return SafeArea(
-      child: ListView(
+    final hourOptions = List<int>.generate(12, (i) => i + 1);
+
+    Widget hourDropdown({
+      required RxInt value,
+      required void Function(int) onChanged,
+    }) {
+      return Obx(() {
+        return DropdownButton<int>(
+          value: value.value,
+          items: hourOptions
+              .map((h) => DropdownMenuItem(
+                    value: h,
+                    child: Text('$h hour${h == 1 ? '' : 's'}'),
+                  ))
+              .toList(),
+          onChanged: (v) {
+            if (v == null) return;
+            onChanged(v);
+          },
+        );
+      });
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notification Settings'),
+      ),
+      body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'Settings',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            'Repeat reminders (only on due day)',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
 
-          // --- Pet controls ---
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Obx(() {
-                final emotion = pet.emotion.value;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Pet', style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Emotion'),
-                      subtitle: Text('Current: $emotion / 100'),
-                      trailing: FilledButton(
-                        onPressed: () {
-                          pet.emotion.value = 20; // daily refresh baseline
-                          Get.snackbar('Pet', 'Emotion reset to 60',
-                              snackPosition: SnackPosition.BOTTOM);
-                        },
-                        child: const Text('Reset daily'),
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // --- Logout ---
+          // Urgent & High info
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Account', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Logout'),
-                    trailing: ElevatedButton(
-                      onPressed: () {
-                        Get.deleteAll(force: true);
-                        Get.offAllNamed('/login');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                      ),
-                      child: const Text('Logout'),
-                    ),
-                  ),
+                children: const [
+                  Text('Urgent: every 1 hour (always)'),
+                  SizedBox(height: 6),
+                  Text('High: every 2 hours (always)'),
+                  SizedBox(height: 6),
+                  Text('Medium/Low: configurable below'),
                 ],
               ),
             ),
           ),
-           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('test', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Logout'),
-                    trailing: ElevatedButton(
-                      onPressed: () async {
-                       await Get.find<NotificationService>().testNow();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                      ),
-                      child: const Text('test'),
-                    ),
-                  ),
-                ],
-              ),
+
+          const SizedBox(height: 16),
+
+          // Medium
+          Obx(() {
+            return SwitchListTile(
+              title: const Text('Enable Medium repeat'),
+              subtitle: const Text('If enabled, repeats on due day only'),
+              value: settingC.mediumRepeatEnabled.value,
+              onChanged: (v) => settingC.setMediumEnabled(v),
+            );
+          }),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Text('Medium interval:  '),
+                hourDropdown(
+                  value: settingC.mediumRepeatHours,
+                  onChanged: settingC.setMediumHours,
+                ),
+              ],
             ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Low
+          Obx(() {
+            return SwitchListTile(
+              title: const Text('Enable Low repeat'),
+              subtitle: const Text('If enabled, repeats on due day only'),
+              value: settingC.lowRepeatEnabled.value,
+              onChanged: (v) => settingC.setLowEnabled(v),
+            );
+          }),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Text('Low interval:      '),
+                hourDropdown(
+                  value: settingC.lowRepeatHours,
+                  onChanged: settingC.setLowHours,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Friendly note
+          const Text(
+            'Note: Due-today notification will always fire at least once even if you disable task notifications.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
           ),
         ],
       ),

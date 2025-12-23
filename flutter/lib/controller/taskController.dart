@@ -30,6 +30,19 @@ class TaskController extends GetxController {
     walletC = Get.find<WalletController>();
     settingC = Get.find<SettingController>();
     fetchTasks();
+
+    // ✅ whenever settings change, re-schedule all tasks
+    ever(settingC.mediumRepeatEnabled, (_) => _rescheduleAll());
+    ever(settingC.mediumRepeatHours, (_) => _rescheduleAll());
+    ever(settingC.lowRepeatEnabled, (_) => _rescheduleAll());
+    ever(settingC.lowRepeatHours, (_) => _rescheduleAll());
+  }
+
+  Future<void> _rescheduleAll() async {
+    for (final t in tasks) {
+      await _scheduleAllNotifications(t);
+    }
+    await notifier.debugPending();
   }
 
   // =========================================================
@@ -429,7 +442,10 @@ class TaskController extends GetxController {
       final noStart = (t.startDate == null);
       final startWindow = DateTime(due.year, due.month, due.day, 9, 0);
 
-      if (canRepeat && _isSameDay(due, now) && noStart && due.isAfter(startWindow)) {
+      if (canRepeat &&
+          _isSameDay(due, now) &&
+          noStart &&
+          due.isAfter(startWindow)) {
         await notifier.scheduleEveryNHoursToday(
           taskId: _cleanId(t.id),
           everyHours: hours,
@@ -450,8 +466,10 @@ class TaskController extends GetxController {
     // -------------------------
     if (t.type == TaskType.ranged && t.dueDate != null) {
       final dueDate = t.dueDate!;
-      final dueToday0900 = DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
-      final dueTime = DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
+      final dueToday0900 =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
+      final dueTime =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
 
       // If already past due date end, don't schedule
       if (!dueTime.isAfter(now)) return;
