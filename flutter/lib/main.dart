@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api/dioclient.dart';
 import 'controller/authController.dart';
+import 'controller/settingController.dart';
 import 'controller/taskController.dart';
 import 'controller/petController.dart';
 import 'controller/walletController.dart';
@@ -25,6 +26,7 @@ Future<void> main() async {
   Get.put<DioClient>(DioClient(), permanent: true);
 
   // Controllers
+  Get.put<SettingController>(SettingController(), permanent: true);
   Get.put<WalletController>(WalletController(), permanent: true);
   Get.put<AuthController>(AuthController(), permanent: true);
   Get.put<PetController>(PetController(), permanent: true);
