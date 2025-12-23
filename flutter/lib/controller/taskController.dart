@@ -10,6 +10,7 @@ import '../services/notification_service.dart';
 import '../storage/authStorage.dart';
 import 'petController.dart';
 import 'walletController.dart';
+import 'settingController.dart';
 
 class TaskController extends GetxController {
   final tasks = <Task>[].obs;
@@ -19,6 +20,7 @@ class TaskController extends GetxController {
 
   final DioClient _dioClient = Get.find<DioClient>();
   late final WalletController walletC;
+  late final SettingController settingC;
 
   TaskController(this.notifier, this.pet);
 
@@ -26,7 +28,21 @@ class TaskController extends GetxController {
   void onInit() {
     super.onInit();
     walletC = Get.find<WalletController>();
+    settingC = Get.find<SettingController>();
     fetchTasks();
+
+    // ✅ whenever settings change, re-schedule all tasks
+    ever(settingC.mediumRepeatEnabled, (_) => _rescheduleAll());
+    ever(settingC.mediumRepeatHours, (_) => _rescheduleAll());
+    ever(settingC.lowRepeatEnabled, (_) => _rescheduleAll());
+    ever(settingC.lowRepeatHours, (_) => _rescheduleAll());
+  }
+
+  Future<void> _rescheduleAll() async {
+    for (final t in tasks) {
+      await _scheduleAllNotifications(t);
+    }
+    await notifier.debugPending();
   }
 
   // =========================================================
@@ -312,10 +328,27 @@ class TaskController extends GetxController {
   // =========================================================
   String _cleanId(String id) => id.replaceAll(RegExp(r'[\[\]#]'), '');
 
-  // keep subTaskId for deep-link
+  bool _repeatAllowed(Task t) {
+    return switch (t.priority) {
+      PriorityLevel.urgent => true,
+      PriorityLevel.high => true,
+      PriorityLevel.medium => settingC.mediumRepeatEnabled.value,
+      PriorityLevel.low => settingC.lowRepeatEnabled.value,
+    };
+  }
+
+  int _repeatHours(Task t) {
+    return switch (t.priority) {
+      PriorityLevel.urgent => 1,
+      PriorityLevel.high => 2,
+      PriorityLevel.medium => settingC.mediumRepeatHours.value,
+      PriorityLevel.low => settingC.lowRepeatHours.value,
+    };
+  }
+
   String _payloadForTask(Task t, {String? subTaskId}) {
     return jsonEncode({
-      'taskId': t.id,
+      'taskId': _cleanId(t.id),
       'subTaskId': subTaskId,
     });
   }
@@ -328,20 +361,32 @@ class TaskController extends GetxController {
   // =========================================================
   Future<void> _scheduleAllNotifications(Task t) async {
     // 1) cancel old schedules first
-    await notifier.cancelForTask(t.id);
+    await notifier.cancelForTask(_cleanId(t.id));
 
     // 2) skip if completed/archived
     if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) {
       return;
     }
 
-    // 3) skip if task-level notifications disabled
-    if (!t.focusPrefs.notificationsEnabled) return;
+    final now = DateTime.now();
 
-    // 4) ensure permission
+    // 判定是否 due today（singleDay: dueDateTime / ranged: dueDate）
+    final bool dueToday = (t.type == TaskType.singleDay &&
+            t.dueDateTime != null &&
+            _isSameDay(t.dueDateTime!, now)) ||
+        (t.type == TaskType.ranged &&
+            t.dueDate != null &&
+            _isSameDay(t.dueDate!, now));
+
+    // ✅ 今天 due 一定要提醒一次
+    final bool allowNormalNoti = t.focusPrefs.notificationsEnabled;
+
+    // 如果不是 due today 且用户关了通知，就直接不排任何
+    if (!dueToday && !allowNormalNoti) return;
+
+    // ensure permission
     await notifier.ensurePermission();
 
-    final now = DateTime.now();
     final payload = _payloadForTask(t);
 
     // -------------------------
@@ -351,10 +396,10 @@ class TaskController extends GetxController {
       final due = t.dueDateTime!;
       final dueDay0900 = DateTime(due.year, due.month, due.day, 9, 0);
 
-      // ✅ DueToday @ 09:00 on the due day (catch up if today & already past 09:00)
+      // DueToday once
       if (_isSameDay(due, now)) {
         await notifier.scheduleDueToday0900OrCatchUp(
-          taskId: t.id,
+          taskId: _cleanId(t.id),
           today: now,
           title: 'Task Reminder',
           body: "Due today: ‘${t.title}’. Tap to start focus!",
@@ -362,7 +407,7 @@ class TaskController extends GetxController {
         );
       } else {
         await notifier.scheduleOneShot(
-          taskId: t.id,
+          taskId: _cleanId(t.id),
           key: 'dueToday',
           when: dueDay0900,
           title: 'Task Reminder',
@@ -371,9 +416,7 @@ class TaskController extends GetxController {
         );
       }
 
-      // ✅ DueTime (safe)
-      // - If due already passed but still today -> fire in 1 minute
-      // - If due is in the past and not today -> skip
+      // DueTime once (safe)
       if (!_isSameDay(due, now) && !due.isAfter(now)) {
         // past day -> skip
       } else {
@@ -382,7 +425,7 @@ class TaskController extends GetxController {
             : due;
 
         await notifier.scheduleOneShot(
-          taskId: t.id,
+          taskId: _cleanId(t.id),
           key: 'dueTime',
           when: dueSafe,
           title: 'Task Reminder',
@@ -391,16 +434,24 @@ class TaskController extends GetxController {
         );
       }
 
-      // ✅ If today + no start -> every 2 hours between 09:00–min(due, 21:00 cap)
+      // Due day repeats (urgent/high auto, medium/low depend settings)
+      final canRepeat = allowNormalNoti && _repeatAllowed(t);
+      final hours = _repeatHours(t);
+
+      // Only repeat on due day (and not started)
       final noStart = (t.startDate == null);
       final startWindow = DateTime(due.year, due.month, due.day, 9, 0);
-      if (noStart && _isSameDay(due, now) && due.isAfter(startWindow)) {
+
+      if (canRepeat &&
+          _isSameDay(due, now) &&
+          noStart &&
+          due.isAfter(startWindow)) {
         await notifier.scheduleEveryNHoursToday(
-          taskId: t.id,
-          everyHours: 2,
-          endAt: due,
+          taskId: _cleanId(t.id),
+          everyHours: hours,
+          endAt: due, // ✅ end at exact dueDateTime
           title: 'Task Reminder',
-          body: "Due today: ‘${t.title}’. Tap to start focus!",
+          body: "Due today: ‘${t.title}’. Tap to focus!",
           payload: payload,
           startHour: 9,
           endHour: 21,
@@ -415,36 +466,43 @@ class TaskController extends GetxController {
     // -------------------------
     if (t.type == TaskType.ranged && t.dueDate != null) {
       final dueDate = t.dueDate!;
-      final dueToday0900 = DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
-      final dueTime = DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
+      final dueToday0900 =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
+      final dueTime =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
 
       // If already past due date end, don't schedule
       if (!dueTime.isAfter(now)) return;
 
-      // ✅ DueToday @ 09:00 on due date (catch up if today & past 09:00)
+      // DueToday once
       if (_isSameDay(dueDate, now)) {
         await notifier.scheduleDueToday0900OrCatchUp(
-          taskId: t.id,
+          taskId: _cleanId(t.id),
           today: now,
           title: 'Task Reminder',
           body: "Due today: ‘${t.title}’. Tap to start focus!",
           payload: payload,
         );
 
-        // On the due day: behave like dueDateTime procedure -> every 2 hours until 23:59
-        await notifier.scheduleEveryNHoursToday(
-          taskId: t.id,
-          everyHours: 2,
-          endAt: dueTime,
-          title: 'Task Reminder',
-          body: "Due today: ‘${t.title}’. Tap to focus!",
-          payload: payload,
-          startHour: 9,
-          endHour: 21,
-        );
+        // Due day repeats ONLY (A plan)
+        final canRepeat = allowNormalNoti && _repeatAllowed(t);
+        final hours = _repeatHours(t);
+
+        if (canRepeat) {
+          await notifier.scheduleEveryNHoursToday(
+            taskId: _cleanId(t.id),
+            everyHours: hours,
+            endAt: dueTime, // ✅ ranged due day ends 23:59
+            title: 'Task Reminder',
+            body: "Due today: ‘${t.title}’. Tap to focus!",
+            payload: payload,
+            startHour: 9,
+            endHour: 21,
+          );
+        }
       } else {
         await notifier.scheduleOneShot(
-          taskId: t.id,
+          taskId: _cleanId(t.id),
           key: 'dueToday',
           when: dueToday0900,
           title: 'Task Reminder',
@@ -453,9 +511,9 @@ class TaskController extends GetxController {
         );
       }
 
-      // ✅ DueTime @ dueDate 23:59
+      // DueTime once
       await notifier.scheduleOneShot(
-        taskId: t.id,
+        taskId: _cleanId(t.id),
         key: 'dueTime',
         when: dueTime,
         title: 'Task Reminder',
@@ -463,15 +521,17 @@ class TaskController extends GetxController {
         payload: payload,
       );
 
-      // ✅ Daily reminder once/day until due date (09:00)
-      await notifier.scheduleDailyUntilDue(
-        taskId: t.id,
-        hour: 9,
-        minute: 0,
-        title: 'Task Reminder',
-        body: "Reminder: work on ‘${t.title}’ today. Tap to focus.",
-        payload: payload,
-      );
+      // Daily reminder once/day until due date (only if enabled)
+      if (allowNormalNoti) {
+        await notifier.scheduleDailyUntilDue(
+          taskId: _cleanId(t.id),
+          hour: 9,
+          minute: 0,
+          title: 'Task Reminder',
+          body: "Reminder: work on ‘${t.title}’ today. Tap to focus.",
+          payload: payload,
+        );
+      }
 
       return;
     }

@@ -49,7 +49,8 @@ class NotificationService {
 
         try {
           final data = jsonDecode(payload);
-          final taskId = data['taskId'];
+          final rawTaskId = (data['taskId'] ?? '').toString();
+          final taskId = rawTaskId.replaceAll(RegExp(r'[\[\]#]'), '');
           final subTaskId = data['subTaskId'];
 
           // ✅ deep link to Focus Timer
@@ -94,6 +95,18 @@ class NotificationService {
   // -----------------------------
   // Permission helpers
   // -----------------------------
+
+  tz.TZDateTime _toFutureTz(DateTime when) {
+    final nowTz = tz.TZDateTime.now(tz.local);
+    var t = tz.TZDateTime.from(when, tz.local);
+
+    // If scheduled time is not strictly in the future, push it
+    if (!t.isAfter(nowTz)) {
+      t = nowTz.add(const Duration(minutes: 1));
+    }
+    return t;
+  }
+
   Future<void> openAppNotificationSettings() async {
     await openAppSettings();
   }
@@ -133,78 +146,83 @@ class NotificationService {
   }
 
   int _idOneShot(String taskId, String key) => _stableHash32('$taskId|$key');
-  int _idDaily(String taskId, String key) => _stableHash32('$taskId|daily|$key');
+  int _idDaily(String taskId, String key) =>
+      _stableHash32('$taskId|daily|$key');
 
   // -----------------------------
   // Cancel all schedules for a task
   // -----------------------------
-  Future<void> cancelForTask(String taskId) async {
-    // one-shot keys scheduled by TaskController
-    const oneShotKeys = [
-      kDueToday,
-      kDueTime,
-    ];
 
-    // repeating daily keys
-    const dailyKeys = [
-      kDailyUntilDue,
-    ];
+  Future<void> cancelAllNotifications() async {
+  await _plugin.cancelAll();
+  debugPrint("💣 cancelAllNotifications done");
+  }
+
+  Future<void> cancelForTask(String taskId) async {
+    final clean = taskId.replaceAll(RegExp(r'[\[\]#]'), '');
+
+    const oneShotKeys = [kDueToday, kDueTime];
+    const dailyKeys = [kDailyUntilDue];
 
     for (final k in oneShotKeys) {
-      await _plugin.cancel(_idOneShot(taskId, k));
+      await _plugin.cancel(_idOneShot(clean, k));
     }
-
     for (final k in dailyKeys) {
-      await _plugin.cancel(_idDaily(taskId, k));
+      await _plugin.cancel(_idDaily(clean, k));
     }
-
-    // today repeats
     for (int i = 0; i < maxTodayRepeats; i++) {
-      await _plugin.cancel(_idOneShot(taskId, '$kTodayRepeatPrefix$i'));
+      await _plugin.cancel(_idOneShot(clean, '$kTodayRepeatPrefix$i'));
     }
 
-    debugPrint("🧹 cancelForTask done: task=$taskId");
+    debugPrint("🧹 cancelForTask done: task=$clean");
   }
 
   // -----------------------------
   // Core scheduling wrappers
   //   - inexactAllowWhileIdle avoids exact-alarm permission issues
   // -----------------------------
+
+  NotificationDetails _notificationDetails() {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        taskChannelId,
+        taskChannelName,
+        channelDescription: 'Task reminders',
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+    );
+  }
+
   Future<void> scheduleOneShot({
     required String taskId,
     required String key,
     required DateTime when,
     required String title,
     required String body,
-    String? payload,
+    required String payload,
   }) async {
-    try {
-      final tzWhen = tz.TZDateTime.from(when, tz.local);
+    final cleanTaskId = taskId.replaceAll(RegExp(r'[\[\]#]'), '');
+    final id = _idOneShot(cleanTaskId, key); // ✅ stable + matches cancelForTask
 
+    final tzWhen = _toFutureTz(when);
+
+    try {
       await _plugin.zonedSchedule(
-        _idOneShot(taskId, key),
+        id,
         title,
         body,
         tzWhen,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            taskChannelId,
-            taskChannelName,
-            channelDescription: 'Task reminders',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-        ),
+        _notificationDetails(), // make sure this exists
         payload: payload,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
-
-      debugPrint(
-          "✅ scheduled one-shot: task=$taskId key=$key at=$when (tz=$tzWhen)");
+      debugPrint('✅ one-shot: id=$id task=$cleanTaskId key=$key at=$tzWhen');
     } catch (e) {
-      debugPrint("❌ scheduleOneShot failed: task=$taskId key=$key err=$e");
+      debugPrint(
+          '❌ scheduleOneShot failed: id=$id task=$cleanTaskId key=$key err=$e');
     }
   }
 
@@ -219,12 +237,14 @@ class NotificationService {
     String? payload,
   }) async {
     try {
+      final cleanTaskId = taskId.replaceAll(RegExp(r'[\[\]#]'), '');
       final now = tz.TZDateTime.now(tz.local);
-      var next = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+      var next =
+          tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
       if (next.isBefore(now)) next = next.add(const Duration(days: 1));
 
       await _plugin.zonedSchedule(
-        _idDaily(taskId, key),
+        _idDaily(cleanTaskId, key),
         title,
         body,
         next,
@@ -263,17 +283,17 @@ class NotificationService {
     required String body,
     required String payload,
   }) async {
-    final target0900 = DateTime(today.year, today.month, today.day, 9, 0);
-    final now = DateTime.now();
+    final target = DateTime(today.year, today.month, today.day, 9, 0);
 
-    final when = now.isAfter(target0900)
-        ? now.add(const Duration(minutes: 1))
-        : target0900;
+    // If already past 09:00 today -> schedule in 1 minute
+    final safe = target.isAfter(DateTime.now())
+        ? target
+        : DateTime.now().add(const Duration(minutes: 1));
 
     await scheduleOneShot(
       taskId: taskId,
-      key: kDueToday,
-      when: when,
+      key: 'dueToday',
+      when: safe,
       title: title,
       body: body,
       payload: payload,
@@ -306,7 +326,8 @@ class NotificationService {
 
     final hardEnd = endAt.isBefore(windowEnd) ? endAt : windowEnd;
     if (!t.isBefore(hardEnd)) {
-      debugPrint("⏭️ scheduleEveryNHoursToday skip: start >= end (task=$taskId)");
+      debugPrint(
+          "⏭️ scheduleEveryNHoursToday skip: start >= end (task=$taskId)");
       return;
     }
 

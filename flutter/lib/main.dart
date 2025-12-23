@@ -5,10 +5,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api/dioclient.dart';
 import 'controller/authController.dart';
+import 'controller/settingController.dart';
 import 'controller/taskController.dart';
 import 'controller/petController.dart';
 import 'controller/walletController.dart';
 import 'services/notification_service.dart';
+import 'package:get_storage/get_storage.dart';
 
 import 'route/page.dart';            // ← your AppPages (keep!)
 import 'screens/focus_timer_screen.dart';
@@ -16,6 +18,7 @@ import 'binding/app_binding.dart';  // ← your AppBinding (keep!)
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await GetStorage.init();
 
   // Services
   final notifier = Get.put<NotificationService>(
@@ -25,6 +28,7 @@ Future<void> main() async {
   Get.put<DioClient>(DioClient(), permanent: true);
 
   // Controllers
+  Get.put<SettingController>(SettingController(), permanent: true);
   Get.put<WalletController>(WalletController(), permanent: true);
   Get.put<AuthController>(AuthController(), permanent: true);
   Get.put<PetController>(PetController(), permanent: true);
@@ -33,7 +37,13 @@ Future<void> main() async {
     permanent: true,
   );
 
+  const bool kResetOldNotisOnce = true;
+
   await notifier.init();
+
+  if (kResetOldNotisOnce) {
+    await notifier.cancelAllNotifications();
+  }
 
   runApp(const MyApp());
 }
