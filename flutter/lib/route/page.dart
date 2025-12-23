@@ -15,6 +15,7 @@ import '../screens/splashscreen.dart';
 import '../screens/task_today.dart';
 import '../screens/all_task.dart';
 import '../screens/setting.dart';
+import '../screens/settings_screen.dart';
 
 // Splash (token check)
 
@@ -68,7 +69,7 @@ class AppPages {
       page: () =>  AllTasks()
       ),
     GetPage(name: '/settings', 
-    page: () =>  Settings()
+    page: () =>  SettingsScreen()
     ),
 
     // Pet chat (kept as a separate page)
