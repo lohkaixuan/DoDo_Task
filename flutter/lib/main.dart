@@ -33,7 +33,13 @@ Future<void> main() async {
     permanent: true,
   );
 
+  const bool kResetOldNotisOnce = true;
+
   await notifier.init();
+
+  if (kResetOldNotisOnce) {
+    await notifier.cancelAllNotifications();
+  }
 
   runApp(const MyApp());
 }
