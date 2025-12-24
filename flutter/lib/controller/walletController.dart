@@ -11,23 +11,24 @@ class WalletController extends GetxController {
 
   final coins = 0.obs;
   final email = "".obs;
+  
 
   @override
   void onInit() {
     super.onInit();
-    // ok to call; if no token yet it will just skip
-    fetchBalance();
+    // skip first, or boom
+    // fetchBalance();
   }
 
   // 📥 GET /balance
   Future<void> fetchBalance() async {
-    try {
-      final token = await AuthStorage.readToken(); // ✅
-      if (token == null || token.isEmpty) {
-        print("⚠️ [Wallet] No token yet, skip fetchBalance");
-        return;
-      }
 
+    final token = await AuthStorage.readToken(); // 你实际 token key 用什么就换
+    if (token == null || token.isEmpty) {
+      print('🧊 [Wallet] skip fetchBalance: no token');
+      return;
+    }
+    try {
       final response = await _dioClient.dio.get(
         '/balance',
         options: Options(headers: {'Authorization': 'Bearer $token'}),

@@ -22,6 +22,7 @@ class TaskController extends GetxController {
   final DioClient _dioClient = Get.find<DioClient>();
   late final WalletController walletC;
   late final SettingController settingC;
+  Worker? _settingWorker;
 
   TaskController(this.notifier, this.pet);
 
@@ -36,24 +37,44 @@ class TaskController extends GetxController {
       fetchTasks();
     });
 
-    // ✅ whenever settings change, re-schedule all tasks
-    ever(settingC.mediumRepeatEnabled, (_) => _rescheduleAll());
-    ever(settingC.mediumRepeatHours, (_) => _rescheduleAll());
-    ever(settingC.lowRepeatEnabled, (_) => _rescheduleAll());
-    ever(settingC.lowRepeatHours, (_) => _rescheduleAll());
+    // ✅ 用一个 Rx 合并（最简单）
+    final settingsSig = RxInt(0);
+    ever(settingC.mediumRepeatEnabled, (_) => settingsSig.value++);
+    ever(settingC.mediumRepeatHours, (_) => settingsSig.value++);
+    ever(settingC.lowRepeatEnabled, (_) => settingsSig.value++);
+    ever(settingC.lowRepeatHours, (_) => settingsSig.value++);
+
+    _settingsWorker = debounce<int>(
+      settingsSig,
+      (_) => _rescheduleAll(),
+      time: const Duration(milliseconds: 400),
+    );
+  }
+
+  @override
+  void onClose() {
+    _settingsWorker?.dispose();
+    super.onClose();
   }
 
   Future<void> _rescheduleAll() async {
-    for (final t in tasks) {
+  final snapshot = List<Task>.from(tasks);
+  Future.microtask(() async {
+    for (final t in snapshot) {
       await _scheduleAllNotifications(t);
+      await Future.delayed(const Duration(milliseconds: 10));
     }
-    await notifier.debugPending();
+  });
   }
 
   // =========================================================
   // Fetch
   // =========================================================
+  bool _fetching = false;
   Future<void> fetchTasks() async {
+    if (_fetching) return;
+    _fetching = true;
+
     try {
       final email = await AuthStorage.readUserEmail();
       if (email == null || email.isEmpty) return;
@@ -63,7 +84,6 @@ class TaskController extends GetxController {
 
       final list = (res.data as List).map((e) {
         final m = Map<String, dynamic>.from(e);
-        // backend uses flutter_id, app uses id
         if (m['flutter_id'] != null) m['id'] = m['flutter_id'];
         return Task.fromJson(m);
       }).toList();
@@ -71,17 +91,16 @@ class TaskController extends GetxController {
       tasks.assignAll(list);
 
       Future.microtask(() async {
-      for (final t in list) {
-        await _scheduleAllNotifications(t);
-        await Future.delayed(const Duration(milliseconds: 10)); // tiny yield
-      }
-      // ✅ disable in release
-      // await notifier.debugPending();
-    });
-
-      //await notifier.debugPending();
+        // ✅ permission 只做一次（下面 Step 2 会讲）
+        for (final t in list) {
+          await _scheduleAllNotifications(t);
+          await Future.delayed(const Duration(milliseconds: 10));
+        }
+      });
     } catch (e) {
       print('⚠️ fetchTasks failed: $e');
+    } finally {
+      _fetching = false;
     }
   }
 
@@ -397,6 +416,13 @@ class TaskController extends GetxController {
     await notifier.ensurePermission();
 
     final payload = _payloadForTask(t);
+
+    bool _notiChecked = false;
+    Future<void> _ensureNotiOnce() async {
+      if (_notiChecked) return;
+      _notiChecked = true;
+      await notifier.ensurePermission();
+    }
 
     // -------------------------
     // A) singleDay + dueDateTime
