@@ -3,38 +3,41 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 class SettingController extends GetxController {
-  final _box = GetStorage();
+  final GetStorage _box = GetStorage();
 
   // keys
-  static const _kMediumRepeatEnabled = 'mediumRepeatEnabled';
-  static const _kMediumRepeatHours = 'mediumRepeatHours';
-  static const _kLowRepeatEnabled = 'lowRepeatEnabled';
-  static const _kLowRepeatHours = 'lowRepeatHours';
+  static const String _kMediumRepeatEnabled = 'mediumRepeatEnabled';
+  static const String _kMediumRepeatHours = 'mediumRepeatHours';
+  static const String _kLowRepeatEnabled = 'lowRepeatEnabled';
+  static const String _kLowRepeatHours = 'lowRepeatHours';
 
   // defaults
-  final mediumRepeatEnabled = false.obs;
-  final mediumRepeatHours = 3.obs; // default 3 hours
+  final RxBool mediumRepeatEnabled = false.obs;
+  final RxInt mediumRepeatHours = 3.obs; // default 3 hours
 
-  final lowRepeatEnabled = false.obs;
-  final lowRepeatHours = 4.obs; // default 4 hours
+  final RxBool lowRepeatEnabled = false.obs;
+  final RxInt lowRepeatHours = 4.obs; // default 4 hours
 
   @override
   void onInit() {
     super.onInit();
     _load();
+    _clampHours();
   }
 
   void _load() {
-    mediumRepeatEnabled.value =
-        _box.read(_kMediumRepeatEnabled) ?? mediumRepeatEnabled.value;
-    mediumRepeatHours.value =
-        _box.read(_kMediumRepeatHours) ?? mediumRepeatHours.value;
+    // Type-safe reads (avoid unexpected dynamic issues)
+    final mEnabled = _box.read(_kMediumRepeatEnabled);
+    if (mEnabled is bool) mediumRepeatEnabled.value = mEnabled;
 
-    lowRepeatEnabled.value =
-        _box.read(_kLowRepeatEnabled) ?? lowRepeatEnabled.value;
-    lowRepeatHours.value = _box.read(_kLowRepeatHours) ?? lowRepeatHours.value;
+    final mHours = _box.read(_kMediumRepeatHours);
+    if (mHours is int) mediumRepeatHours.value = mHours;
 
-    _clampHours();
+    final lEnabled = _box.read(_kLowRepeatEnabled);
+    if (lEnabled is bool) lowRepeatEnabled.value = lEnabled;
+
+    final lHours = _box.read(_kLowRepeatHours);
+    if (lHours is int) lowRepeatHours.value = lHours;
   }
 
   void _clampHours() {
@@ -43,6 +46,9 @@ class SettingController extends GetxController {
     lowRepeatHours.value = lowRepeatHours.value.clamp(1, 12);
   }
 
+  // -------------------------
+  // Setters (persist + clamp)
+  // -------------------------
   void setMediumEnabled(bool v) {
     mediumRepeatEnabled.value = v;
     _box.write(_kMediumRepeatEnabled, v);

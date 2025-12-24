@@ -305,26 +305,36 @@ class NotificationService {
   Future<void> scheduleEveryNHoursToday({
     required String taskId,
     required int everyHours,
-    required DateTime endAt,
+    required DateTime endAt, // ✅ hard stop = dueTime
     required String title,
     required String body,
     required String payload,
     int startHour = 9,
-    int endHour = 21,
   }) async {
     final now = DateTime.now();
 
+    // ✅ Start window: today at startHour:00
     final windowStart = DateTime(now.year, now.month, now.day, startHour, 0);
-    final windowEnd = DateTime(now.year, now.month, now.day, endHour, 0);
 
-    // Start time = next 5-min aligned moment (>= now+1min)
+    // ✅ Hard end: exact endAt (dueTime / 23:59 / etc.)
+    final hardEnd = endAt;
+
+    // If end already passed, skip
+    if (!hardEnd.isAfter(now)) {
+      debugPrint(
+          "⏭️ scheduleEveryNHoursToday skip: end already passed (task=$taskId)");
+      return;
+    }
+
+    // Start time = now + 1 min, align to next 5-min mark
     DateTime t = now.add(const Duration(minutes: 1));
     final bump = (5 - (t.minute % 5)) % 5;
     t = t.add(Duration(minutes: bump));
 
+    // If still before start window -> jump to windowStart
     if (t.isBefore(windowStart)) t = windowStart;
 
-    final hardEnd = endAt.isBefore(windowEnd) ? endAt : windowEnd;
+    // If start is already >= hard end -> nothing to do
     if (!t.isBefore(hardEnd)) {
       debugPrint(
           "⏭️ scheduleEveryNHoursToday skip: start >= end (task=$taskId)");
@@ -347,7 +357,8 @@ class NotificationService {
       i++;
     }
 
-    debugPrint("✅ scheduleEveryNHoursToday done: task=$taskId count=$i");
+    debugPrint(
+        "✅ scheduleEveryNHoursToday done: task=$taskId count=$i endAt=$hardEnd");
   }
 
   /// Ranged tasks: daily reminder until due date.

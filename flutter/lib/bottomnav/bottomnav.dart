@@ -28,7 +28,7 @@ class _NavShellState extends State<NavShell> {
     TaskToday(),       // 1
     SizedBox.shrink(), // 2 (center slot; not a page)
     AllTasks(),        // 3
-    Settings(),        // 4
+    SettingPage(),  // 4
   ];
 
   Future<void> _openAddSheet() async {

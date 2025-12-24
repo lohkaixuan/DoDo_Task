@@ -68,7 +68,7 @@ class AppPages {
       page: () =>  AllTasks()
       ),
     GetPage(name: '/settings', 
-    page: () =>  Settings()
+    page: () =>  SettingPage()
     ),
 
     // Pet chat (kept as a separate page)

@@ -454,7 +454,6 @@ class TaskController extends GetxController {
           body: "Due today: ‘${t.title}’. Tap to focus!",
           payload: payload,
           startHour: 9,
-          endHour: 21,
         );
       }
 
@@ -497,7 +496,6 @@ class TaskController extends GetxController {
             body: "Due today: ‘${t.title}’. Tap to focus!",
             payload: payload,
             startHour: 9,
-            endHour: 21,
           );
         }
       } else {
