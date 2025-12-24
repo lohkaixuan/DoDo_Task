@@ -173,7 +173,7 @@ class InsightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Get.find<InsightsController>(); // ✅ 不要在 build 里 put 不然會重複建立ent
+    final c = Get.find<InsightsController>(); // ✅ only find
 
     return Card(
       child: Padding(
@@ -193,7 +193,7 @@ class InsightsCard extends StatelessWidget {
               const Text('AI Insights',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              if ((c.summary.value).isEmpty)
+              if (c.summary.value.isEmpty)
                 TextButton.icon(
                   onPressed: c.refreshInsights,
                   icon: const Icon(Icons.auto_awesome),
@@ -209,6 +209,14 @@ class InsightsCard extends StatelessWidget {
                       onPressed: c.refreshInsights,
                       icon: const Icon(Icons.refresh),
                       label: const Text('Restart Analysis'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Get.snackbar('Metrics', 'Next version can show charts.',
+                            snackPosition: SnackPosition.BOTTOM);
+                      },
+                      icon: const Icon(Icons.bar_chart),
+                      label: const Text('Show graph (Next Ver)'),
                     ),
                   ],
                 ),
