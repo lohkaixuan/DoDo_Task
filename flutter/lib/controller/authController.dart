@@ -6,7 +6,8 @@ import '../api/apis.dart';
 import '../storage/authStorage.dart';
 
 class AuthController extends GetxController {
-  final dioClient = DioClient();
+  final DioClient dioClient = Get.find<DioClient>(); // ✅ use injected
+  late final WalletController walletC;
 
   // form controllers owned by GetX (UI stays thin)
   final email = TextEditingController();
@@ -15,22 +16,29 @@ class AuthController extends GetxController {
   final isLoading = false.obs;
   final isLoggedIn = false.obs;
 
+  @override
+  void onInit() {
+    super.onInit();
+    walletC = Get.find<WalletController>();
+  }
+
   Future<void> login(String email, String password) async {
-    print("login called $email $password");
     try {
       isLoading.value = true;
       var res = await ApiService(dioClient).login(email, password);
 
       if (res.token != null && res.token!.isNotEmpty) {
-      await AuthStorage.save(res.token, res.id, res.email);
-      await Get.find<WalletController>().fetchBalance();
-      Get.offAllNamed('/home');
-    } else {
-      Get.snackbar("Login failed", "No token");
-    }
+        await AuthStorage.save(res.token, res.id, res.email);
+
+        // ✅ 登录成功后再打 balance（这才是最稳的时机）
+        await walletC.fetchBalance();
+
+        Get.offAllNamed('/home');
+      } else {
+        Get.snackbar("Login failed", "No token");
+      }
     } catch (e) {
       Get.snackbar('Login error', e.toString());
-      print("login error $e");
     } finally {
       isLoading.value = false;
     }
