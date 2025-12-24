@@ -29,7 +29,7 @@ class NotificationService {
   static const String kDailyUntilDue = 'dailyUntilDue';
   static const String kTodayRepeatPrefix = 'todayRepeat_';
 
-  static const int maxTodayRepeats = 48;
+  static const int maxTodayRepeats = 12; // every 2 hours from 9am-9pm
 
   // -----------------------------
   // Init
