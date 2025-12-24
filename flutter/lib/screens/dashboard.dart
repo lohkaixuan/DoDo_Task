@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:v3/controller/InsightsController.dart';
+import 'package:v3/controller/insightsController.dart';
 
 import '../widgets/pad.dart';
 import '../widgets/pet_header.dart';
@@ -173,8 +173,7 @@ class InsightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 使用 permanent: false 确保不会导致内存泄漏
-    final c = Get.put(InsightsController(), permanent: false);
+    final c = Get.find<InsightsController>(); // ✅ 不要在 build 里 put 不然會重複建立ent
 
     return Card(
       child: Padding(
@@ -187,6 +186,7 @@ class InsightsCard extends StatelessWidget {
               subtitle: Text('I am checking your tasks and generating insights.'),
             );
           }
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -210,15 +210,6 @@ class InsightsCard extends StatelessWidget {
                       icon: const Icon(Icons.refresh),
                       label: const Text('Restart Analysis'),
                     ),
-                    if (c.metrics != null)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Get.snackbar('Metrics', '可在下一版展示图表/明细',
-                              snackPosition: SnackPosition.BOTTOM);
-                        },
-                        icon: const Icon(Icons.bar_chart),
-                        label: const Text('Show graph (Next Ver)'),
-                      ),
                   ],
                 ),
               ],

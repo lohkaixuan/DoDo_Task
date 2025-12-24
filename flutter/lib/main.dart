@@ -11,6 +11,7 @@ import 'controller/petController.dart';
 import 'controller/walletController.dart';
 import 'services/notification_service.dart';
 import 'package:get_storage/get_storage.dart';
+import 'controller/insightsController.dart';
 
 import 'route/page.dart';            // ← your AppPages (keep!)
 import 'screens/focus_timer_screen.dart';
@@ -20,32 +21,22 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
 
-  // Services
-  final notifier = Get.put<NotificationService>(
-    NotificationService(),
-    permanent: true,
-  );
-  Get.put<DioClient>(DioClient(), permanent: true);
-
-  // Controllers
-  Get.put<SettingController>(SettingController(), permanent: true);
-  Get.put<WalletController>(WalletController(), permanent: true);
-  Get.put<AuthController>(AuthController(), permanent: true);
-  Get.put<PetController>(PetController(), permanent: true);
-  Get.put<TaskController>(
-    TaskController(Get.find<NotificationService>(), Get.find<PetController>()),
-    permanent: true,
-  );
-
-  const bool kResetOldNotisOnce = true;
-
-  await notifier.init();
-
-  if (kResetOldNotisOnce) {
-    await notifier.cancelAllNotifications();
-  }
-
   runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Dodo Task',
+      initialBinding: AppBinding(), // ✅ 全靠 Binding
+      initialRoute: AppPages.initial,
+      getPages: AppPages.routes,
+    );
+  }
 }
 
 Future<bool> promptEnableNotificationsIfNeeded() async {
@@ -107,7 +98,7 @@ Future<bool> promptEnableNotificationsIfNeeded() async {
   return result ?? false;
 }
 
-class MyApp extends StatelessWidget {
+/*class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
@@ -123,4 +114,4 @@ class MyApp extends StatelessWidget {
       getPages: AppPages.routes,
     );
   }
-}
+}*/

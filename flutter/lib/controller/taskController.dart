@@ -1,6 +1,7 @@
 // lib/controller/taskController.dart
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart' as dio;
 
@@ -29,7 +30,11 @@ class TaskController extends GetxController {
     super.onInit();
     walletC = Get.find<WalletController>();
     settingC = Get.find<SettingController>();
-    fetchTasks();
+
+    // ✅ delay until first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fetchTasks();
+    });
 
     // ✅ whenever settings change, re-schedule all tasks
     ever(settingC.mediumRepeatEnabled, (_) => _rescheduleAll());
@@ -65,12 +70,16 @@ class TaskController extends GetxController {
 
       tasks.assignAll(list);
 
-      // schedule notifications for all tasks
+      Future.microtask(() async {
       for (final t in list) {
         await _scheduleAllNotifications(t);
+        await Future.delayed(const Duration(milliseconds: 10)); // tiny yield
       }
+      // ✅ disable in release
+      // await notifier.debugPending();
+    });
 
-      await notifier.debugPending();
+      //await notifier.debugPending();
     } catch (e) {
       print('⚠️ fetchTasks failed: $e');
     }
