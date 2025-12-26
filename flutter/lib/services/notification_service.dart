@@ -1,6 +1,7 @@
 // lib/services/notification_service.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -195,36 +196,46 @@ class NotificationService {
   }
 
   Future<void> scheduleOneShot({
-    required String taskId,
-    required String key,
-    required DateTime when,
-    required String title,
-    required String body,
-    required String payload,
-  }) async {
-    final cleanTaskId = taskId.replaceAll(RegExp(r'[\[\]#]'), '');
-    final id = _idOneShot(cleanTaskId, key); // ✅ stable + matches cancelForTask
+  required String taskId,
+  required String key,
+  required DateTime when,
+  required String title,
+  required String body,
+  required String payload,
+}) async {
+  final cleanTaskId = taskId.replaceAll(RegExp(r'[\[\]#]'), '');
+  final id = _idOneShot(cleanTaskId, key);
+  final tzWhen = _toFutureTz(when);
 
-    final tzWhen = _toFutureTz(when);
-
-    try {
-      await _plugin.zonedSchedule(
-        id,
-        title,
-        body,
-        tzWhen,
-        _notificationDetails(), // make sure this exists
-        payload: payload,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      );
-      debugPrint('✅ one-shot: id=$id task=$cleanTaskId key=$key at=$tzWhen');
-    } catch (e) {
-      debugPrint(
-          '❌ scheduleOneShot failed: id=$id task=$cleanTaskId key=$key err=$e');
-    }
+  Future<void> _run(AndroidScheduleMode mode) async {
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tzWhen,
+      _notificationDetails(),
+      payload: payload,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: mode,
+    );
   }
+
+  try {
+    await _run(AndroidScheduleMode.exactAllowWhileIdle);
+    debugPrint('✅ one-shot(exact): id=$id task=$cleanTaskId key=$key at=$tzWhen');
+  } on PlatformException catch (e) {
+    if (e.code == 'exact_alarms_not_permitted') {
+      // fallback
+      await _run(AndroidScheduleMode.inexactAllowWhileIdle);
+      debugPrint('⚠️ one-shot(fallback inexact): id=$id task=$cleanTaskId key=$key at=$tzWhen');
+    } else {
+      debugPrint('❌ scheduleOneShot failed: id=$id task=$cleanTaskId key=$key err=$e');
+    }
+  } catch (e) {
+    debugPrint('❌ scheduleOneShot failed: id=$id task=$cleanTaskId key=$key err=$e');
+  }
+}
 
   /// Daily repeating at HH:mm (Android repeats until cancel).
   Future<void> scheduleDailyAtTime({
@@ -258,7 +269,7 @@ class NotificationService {
           ),
         ),
         payload: payload,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -399,20 +410,14 @@ class NotificationService {
   // -----------------------------
   // Test immediate show
   // -----------------------------
-  Future<void> testNow() async {
+  Future<void> showNowTest() async {
+    await ensurePermission();
+
     await _plugin.show(
       999999,
-      'TEST 🦈',
-      'If you see this, notifications work!',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          taskChannelId,
-          taskChannelName,
-          channelDescription: 'Task reminders',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
-      ),
+      "TEST 🦈",
+      "If you see this, notifications are working!",
+      _notificationDetails(), // ✅ use the created channel
     );
   }
 
