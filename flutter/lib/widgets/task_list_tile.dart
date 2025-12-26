@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-
-import '../controller/taskController.dart';
-import '../models/task.dart';
-import '../screens/focus_timer_screen.dart';
-import '../screens/add_update_task.dart';
+import 'package:v3/controller/taskController.dart';
+import 'package:v3/models/task.dart';
+import 'package:v3/screens/add_update_task.dart';
+import 'package:v3/screens/focus_timer_screen.dart';
 
 /// -------- helpers
 String _two(int v) => v.toString().padLeft(2, '0');

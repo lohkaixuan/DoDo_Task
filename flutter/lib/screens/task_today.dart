@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-
-import '../controller/taskController.dart';
-import '../models/task.dart';
-import '../widgets/task_list_tile.dart';
-import '../widgets/pad.dart';
+import 'package:v3/controller/taskController.dart';
+import 'package:v3/models/task.dart';
+import 'package:v3/widgets/pad.dart';
+import 'package:v3/widgets/task_list_tile.dart';
 
 class TaskToday extends StatelessWidget {
   const TaskToday({super.key});

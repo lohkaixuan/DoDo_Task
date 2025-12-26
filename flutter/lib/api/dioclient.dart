@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
-import '../storage/authStorage.dart';
+import 'package:v3/storage/authStorage.dart';
 
 class DioClient {
   final Dio _dio;

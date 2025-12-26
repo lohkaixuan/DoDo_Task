@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
-import '../controller/petChatController.dart';
-import '../widgets/pet_header.dart';
+import 'package:v3/controller/petChatController.dart';
+import 'package:v3/widgets/pet_header.dart';
 
 class PetChatScreen extends StatelessWidget {
   const PetChatScreen({super.key});

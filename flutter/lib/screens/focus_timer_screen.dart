@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
-import '../controller/taskController.dart';
-import '../controller/petController.dart';
-import '../models/task.dart';
-import '../widgets/pad.dart';
-import '../widgets/pet_header.dart';
-import '../services/notification_service.dart';
 import 'package:collection/collection.dart';
+import 'package:v3/controller/petController.dart';
+import 'package:v3/controller/taskController.dart';
+import 'package:v3/models/task.dart';
+import 'package:v3/services/notification_service.dart';
+import 'package:v3/widgets/pad.dart';
+import 'package:v3/widgets/pet_header.dart';
 
 
 class FocusTimerScreen extends StatefulWidget {

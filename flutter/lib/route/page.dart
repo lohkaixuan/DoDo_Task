@@ -1,22 +1,24 @@
 import 'package:get/get.dart';
 
 // Shell (bottom nav with center +)
-import '../bottomnav/bottomnav.dart';
+import 'package:v3/bottomnav/bottomnav.dart';
 
 // Core screens
-import '../screens/login.dart';
-import '../screens/register.dart';
-import '../screens/focus_timer_screen.dart';
-import '../screens/pet_chat_screen.dart';
+import 'package:v3/screens/focus_timer_screen.dart';
+import 'package:v3/screens/login.dart';
+import 'package:v3/screens/pet_chat_screen.dart';
+import 'package:v3/screens/setting.dart';
+
 
 // Optional: direct tab pages (if you want to deep-link to tabs)
-import '../screens/dashboard.dart';
-import '../screens/splashscreen.dart';
-import '../screens/task_today.dart';
-import '../screens/all_task.dart';
-import '../screens/setting.dart';
+import 'package:v3/screens/dashboard.dart';
+import 'package:v3/screens/all_task.dart';
+import 'package:v3/screens/register.dart';
+import 'package:v3/screens/task_today.dart';
+
 
 // Splash (token check)
+import 'package:v3/screens/splashscreen.dart';
 
 class AppPages {
   // For now you want initial = login

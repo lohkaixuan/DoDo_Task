@@ -1,7 +1,7 @@
 // lib/widgets/pet_head_floating.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controller/petController.dart';
+import 'package:v3/controller/petController.dart';
 
 /// Draggable floating pet head.
 /// - Stays on top (add it as the last child in your Stack)

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:v3/controller/taskController.dart';
+import 'package:v3/screens/add_update_task.dart';
+import 'package:v3/screens/all_task.dart';
+import 'package:v3/screens/dashboard.dart';
+import 'package:v3/screens/setting.dart';
+import 'package:v3/screens/task_today.dart';
+import 'package:v3/widgets/pet_chat_head.dart';
 
-import '../controller/taskController.dart';
-import '../controller/petController.dart';
-import '../screens/add_update_task.dart';
-import '../screens/all_task.dart';
-import '../screens/dashboard.dart';
-import '../screens/setting.dart';
-import '../screens/task_today.dart';
-import '../widgets/pet_chat_head.dart';
 
 /// Reserve a little space at the very end of tall lists so the bar/bubble
 /// never covers the last item.

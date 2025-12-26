@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controller/walletController.dart'; // 记得改对路径
+import 'package:v3/controller/walletController.dart';
 
 class CoinBadge extends StatelessWidget {
   const CoinBadge({super.key});

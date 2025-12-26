@@ -1,4 +1,5 @@
 // lib/main.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -8,14 +9,25 @@ import 'services/notification_service.dart';
 import 'route/page.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await GetStorage.init();
+  // ✅ 关键：所有东西都在同一个 zone 里面做
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await GetStorage.init();
 
-  // ✅ 先注册并 init NotificationService（避免 putAsync race）
-  final notifier = Get.put(NotificationService(), permanent: true);
-  await notifier.init();
+    // 可选：把 Flutter framework error 也打印出来
+    FlutterError.onError = (details) {
+      FlutterError.dumpErrorToConsole(details);
+    };
 
-  runApp(const MyApp());
+    // ✅ 只初始化一次 NotificationService
+    final notifier = Get.put(NotificationService(), permanent: true);
+    await notifier.init();
+
+    runApp(const MyApp());
+  }, (error, stack) {
+    debugPrint("💥 ZONE ERROR: $error");
+    debugPrint("$stack");
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -26,7 +38,7 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Dodo Task',
-      initialBinding: AppBinding(), // ✅ 用 binding 注入其它依赖
+      initialBinding: AppBinding(),
       initialRoute: AppPages.initial,
       getPages: AppPages.routes,
     );

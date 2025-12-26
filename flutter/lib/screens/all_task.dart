@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-
-import '../bottomnav/bottomnav.dart' show kBottomReserve;
-import '../controller/taskController.dart';
-import '../models/task.dart';
-import '../widgets/task_list_tile.dart';
+import 'package:v3/bottomnav/bottomnav.dart';
+import 'package:v3/controller/taskController.dart';
+import 'package:v3/models/task.dart';
+import 'package:v3/widgets/task_list_tile.dart';
 
 class AllTasks extends StatefulWidget {
   const AllTasks({super.key});

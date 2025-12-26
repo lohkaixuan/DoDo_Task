@@ -4,11 +4,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart' as dio;
+import 'package:v3/api/dioclient.dart';
+import 'package:v3/models/task.dart';
+import 'package:v3/services/notification_service.dart';
+import 'package:v3/storage/authStorage.dart';
 
-import '../api/dioclient.dart';
-import '../models/task.dart';
-import '../services/notification_service.dart';
-import '../storage/authStorage.dart';
 import 'petController.dart';
 import 'walletController.dart';
 import 'settingController.dart';
@@ -22,23 +22,19 @@ class TaskController extends GetxController {
   final DioClient _dioClient = Get.find<DioClient>();
   late final WalletController walletC;
   late final SettingController settingC;
-  Worker? _settingWorker;
+  Worker? _settingsWorker;
 
   TaskController(this.notifier, this.pet);
 
   @override
   void onInit() {
     super.onInit();
+
     walletC = Get.find<WalletController>();
     settingC = Get.find<SettingController>();
 
-    // ✅ delay until first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fetchTasks();
-    });
-
-    // ✅ 用一个 Rx 合并（最简单）
-    final settingsSig = RxInt(0);
+    // ✅ settings debounce reschedule
+    final settingsSig = 0.obs;
     ever(settingC.mediumRepeatEnabled, (_) => settingsSig.value++);
     ever(settingC.mediumRepeatHours, (_) => settingsSig.value++);
     ever(settingC.lowRepeatEnabled, (_) => settingsSig.value++);
@@ -49,6 +45,11 @@ class TaskController extends GetxController {
       (_) => _rescheduleAll(),
       time: const Duration(milliseconds: 400),
     );
+
+    // ✅ delay fetch until first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fetchTasks();
+    });
   }
 
   @override
@@ -58,13 +59,13 @@ class TaskController extends GetxController {
   }
 
   Future<void> _rescheduleAll() async {
-  final snapshot = List<Task>.from(tasks);
-  Future.microtask(() async {
-    for (final t in snapshot) {
-      await _scheduleAllNotifications(t);
-      await Future.delayed(const Duration(milliseconds: 10));
-    }
-  });
+    final snapshot = List<Task>.from(tasks);
+    Future.microtask(() async {
+      for (final t in snapshot) {
+        await _scheduleAllNotifications(t);
+        await Future.delayed(const Duration(milliseconds: 10));
+      }
+    });
   }
 
   // =========================================================
@@ -92,6 +93,7 @@ class TaskController extends GetxController {
 
       Future.microtask(() async {
         // ✅ permission 只做一次（下面 Step 2 会讲）
+        await notifier.ensurePermission();
         for (final t in list) {
           await _scheduleAllNotifications(t);
           await Future.delayed(const Duration(milliseconds: 10));
@@ -412,17 +414,14 @@ class TaskController extends GetxController {
     // 如果不是 due today 且用户关了通知，就直接不排任何
     if (!dueToday && !allowNormalNoti) return;
 
-    // ensure permission
-    await notifier.ensurePermission();
-
     final payload = _payloadForTask(t);
 
-    bool _notiChecked = false;
+    /*bool _notiChecked = false;
     Future<void> _ensureNotiOnce() async {
       if (_notiChecked) return;
       _notiChecked = true;
       await notifier.ensurePermission();
-    }
+    }*/
 
     // -------------------------
     // A) singleDay + dueDateTime

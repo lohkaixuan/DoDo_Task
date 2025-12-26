@@ -2,11 +2,10 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
-
-import '../api/dioclient.dart';
-import '../controller/taskController.dart';
-import '../storage/authStorage.dart';
-import '../models/task.dart';
+import 'package:v3/api/dioclient.dart';
+import 'package:v3/controller/taskController.dart';
+import 'package:v3/models/task.dart';
+import 'package:v3/storage/authStorage.dart';
 
 class InsightsController extends GetxController {
   late final DioClient _dio;

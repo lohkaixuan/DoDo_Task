@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:v3/api/apis.dart';
+import 'package:v3/api/dioclient.dart';
 import 'package:v3/controller/walletController.dart';
-import '../api/dioclient.dart';
-import '../api/apis.dart';
-import '../storage/authStorage.dart';
+import 'package:v3/storage/authStorage.dart';
+
 
 class AuthController extends GetxController {
   final DioClient dioClient = Get.find<DioClient>(); // ✅ use injected
