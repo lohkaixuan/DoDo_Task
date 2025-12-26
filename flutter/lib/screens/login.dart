@@ -41,14 +41,14 @@ class _LoginPageState extends State<LoginPage> {
         'action': () {
           authC.login(
             loginField[0]['controller'].text.trim(),
-            loginField[1]['controller'].text,
+            loginField[1]['controller'].text.trim(),  
           );
         },
       },
     ];
-    if (Get.isRegistered<WalletController>()) {
-      Get.find<WalletController>().fetchBalance();
-    }
+    //if (Get.isRegistered<WalletController>()) {
+      //Get.find<WalletController>().fetchBalance();
+    //}
   }
 
   @override

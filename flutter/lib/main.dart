@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -11,6 +12,7 @@ import 'route/page.dart';
 Future<void> main() async {
   // ✅ 关键：所有东西都在同一个 zone 里面做
   runZonedGuarded(() async {
+    BindingBase.debugZoneErrorsAreFatal = true;
     WidgetsFlutterBinding.ensureInitialized();
     await GetStorage.init();
 

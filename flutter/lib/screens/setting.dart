@@ -29,57 +29,48 @@ class SettingPage extends StatelessWidget {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Obx(() {
-                // Notifier status is async; we keep it simple with a button.
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'System Notification Permission',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'If you don’t receive reminders, enable notifications in OS settings.',
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              final enabled = await notifier.areEnabled();
-                              if (enabled) {
-                                Get.snackbar(
-                                  'All good 🦈',
-                                  'Notifications are already enabled.',
-                                );
-                                return;
-                              }
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'System Notification Permission',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'If you don’t receive reminders, enable notifications in OS settings.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final enabled = await notifier.areEnabled();
+                            if (enabled) {
+                              Get.snackbar('All good 🦈',
+                                  'Notifications are already enabled.');
+                              return;
+                            }
 
-                              // Try request permission (Android 13+)
-                              final ok = await notifier.ensurePermission();
-                              if (ok) {
-                                Get.snackbar(
-                                  'Enabled 🎉',
-                                  'Task reminders are ready!',
-                                );
-                              } else {
-                                // Open app settings if still disabled
-                                await notifier.openAppNotificationSettings();
-                              }
-                            },
-                            icon: const Icon(Icons.notifications_active),
-                            label: const Text('Enable Notifications'),
-                          ),
+                            
+                            final ok = await notifier.ensurePermission();
+                            if (ok) {
+                              Get.snackbar(
+                                  'Enabled 🎉', 'Task reminders are ready!');
+                            } else {
+                              await notifier.openAppNotificationSettings();
+                            }
+                          },
+                          icon: const Icon(Icons.notifications_active),
+                          label: const Text('Enable Notifications'),
                         ),
-                      ],
-                    ),
-                  ],
-                );
-              }),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -123,6 +114,10 @@ class SettingPage extends StatelessWidget {
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
+                    ElevatedButton(
+  onPressed: () async => notifier.showNowTest(),
+  child: const Text("Test Notification Now"),
+),
                     const SizedBox(height: 8),
                     const Text(
                       'Rules:',
@@ -212,7 +207,7 @@ class SettingPage extends StatelessWidget {
                 ],
               ),
             ),
-          ),
+          )
         ],
       ),
     );

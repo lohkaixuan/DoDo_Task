@@ -7,6 +7,10 @@
 <!-- Foreground service permission (Android 9+) -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
+<!-- notification permission -->
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+
 <!-- Optional for Android 14+ (declare the service types you use) -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <!-- Optional: if you post notifications on Android 13+ -->
