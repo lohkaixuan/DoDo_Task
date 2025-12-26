@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/api/apis.dart';
 import 'package:v3/api/dioclient.dart';
+import 'package:v3/controller/taskController.dart';
 import 'package:v3/controller/walletController.dart';
+import 'package:v3/services/notification_service.dart';
 import 'package:v3/storage/authStorage.dart';
 
 
@@ -33,6 +35,7 @@ class AuthController extends GetxController {
 
         // ✅ 登录成功后再打 balance（这才是最稳的时机）
         await walletC.fetchBalance();
+        await Get.find<TaskController>().fetchTasks();
 
         Get.offAllNamed('/home');
       } else {
@@ -62,9 +65,15 @@ class AuthController extends GetxController {
     }
   }
 
-  void logout() {
-    isLoggedIn.value = false;
-    //Get.offAllNamed(AppRoutes.login);
+  Future<void> logout() async {
+    final notifier = Get.find<NotificationService>();
+    final taskC = Get.find<TaskController>();
+
+    await notifier.cancelAllNotifications();
+    await taskC.clearAll();
+    await AuthStorage.clear(); // token/email...
+    await AuthStorage.clearActiveUserKey();
+    Get.offAllNamed('/login');
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:v3/storage/authStorage.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -146,9 +147,24 @@ class NotificationService {
     return hash & 0x7FFFFFFF;
   }
 
-  int _idOneShot(String taskId, String key) => _stableHash32('$taskId|$key');
+  /*int _idOneShot(String taskId, String key) => 
+      _stableHash32('$taskId|$key');
   int _idDaily(String taskId, String key) =>
-      _stableHash32('$taskId|daily|$key');
+      _stableHash32('$taskId|daily|$key');*/
+
+  Future<String> _userKey() async {
+  return (await AuthStorage.readActiveUserKey()) ?? 'guest';
+}
+
+Future<int> _idOneShot(String taskId, String key) async {
+  final u = await _userKey();
+  return _stableHash32('$u|$taskId|$key');
+}
+
+Future<int> _idDaily(String taskId, String key) async {
+  final u = await _userKey();
+  return _stableHash32('$u|$taskId|daily|$key');
+}
 
   // -----------------------------
   // Cancel all schedules for a task
@@ -161,18 +177,19 @@ class NotificationService {
 
   Future<void> cancelForTask(String taskId) async {
     final clean = taskId.replaceAll(RegExp(r'[\[\]#]'), '');
+    //await _plugin.cancel(await _idOneShot(clean, k));
 
     const oneShotKeys = [kDueToday, kDueTime];
     const dailyKeys = [kDailyUntilDue];
 
     for (final k in oneShotKeys) {
-      await _plugin.cancel(_idOneShot(clean, k));
+      await _plugin.cancel(await _idOneShot(clean, k));
     }
     for (final k in dailyKeys) {
-      await _plugin.cancel(_idDaily(clean, k));
+      await _plugin.cancel(await _idDaily(clean, k));
     }
     for (int i = 0; i < maxTodayRepeats; i++) {
-      await _plugin.cancel(_idOneShot(clean, '$kTodayRepeatPrefix$i'));
+      await _plugin.cancel(await _idOneShot(clean, '$kTodayRepeatPrefix$i'));
     }
 
     debugPrint("🧹 cancelForTask done: task=$clean");
@@ -195,6 +212,9 @@ class NotificationService {
     );
   }
 
+  // -----------------------------
+  // One-shot scheduling wrapper
+  // -----------------------------
   Future<void> scheduleOneShot({
   required String taskId,
   required String key,
@@ -204,7 +224,7 @@ class NotificationService {
   required String payload,
 }) async {
   final cleanTaskId = taskId.replaceAll(RegExp(r'[\[\]#]'), '');
-  final id = _idOneShot(cleanTaskId, key);
+  final id = await _idOneShot(cleanTaskId, key);
   final tzWhen = _toFutureTz(when);
 
   Future<void> _run(AndroidScheduleMode mode) async {
@@ -255,7 +275,7 @@ class NotificationService {
       if (next.isBefore(now)) next = next.add(const Duration(days: 1));
 
       await _plugin.zonedSchedule(
-        _idDaily(cleanTaskId, key),
+        await _idDaily(cleanTaskId, key),
         title,
         body,
         next,
@@ -412,12 +432,19 @@ class NotificationService {
   // -----------------------------
   Future<void> showNowTest() async {
     await ensurePermission();
-
     await _plugin.show(
       999999,
       "TEST 🦈",
       "If you see this, notifications are working!",
-      _notificationDetails(), // ✅ use the created channel
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          taskChannelId,
+          taskChannelName,
+          channelDescription: 'Task reminders',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
     );
   }
 

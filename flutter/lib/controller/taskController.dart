@@ -47,9 +47,9 @@ class TaskController extends GetxController {
     );
 
     // ✅ delay fetch until first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    /*WidgetsBinding.instance.addPostFrameCallback((_) {
       fetchTasks();
-    });
+    });*/
   }
 
   @override
@@ -116,7 +116,6 @@ class TaskController extends GetxController {
 
     // schedule local right away
     await _scheduleAllNotifications(t);
-    await notifier.debugPending();
 
     // sync backend
     try {
@@ -450,6 +449,7 @@ class TaskController extends GetxController {
           body: "Due today: ‘${t.title}’. Tap to start focus!",
           payload: payload,
         );
+        await notifier.debugPending();
       }
 
       // 2) DueTime once (ALWAYS must exist)
