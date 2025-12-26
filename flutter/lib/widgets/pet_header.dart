@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
-import '../controller/petController.dart';
+import 'package:v3/controller/petController.dart';
 
 /// Header with a cute pet + emotion bar (0..100).
 /// - If [imageOverride] provided, uses that sprite; else picks by mood.

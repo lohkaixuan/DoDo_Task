@@ -1,7 +1,7 @@
 // lib/apis.dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../storage/authStorage.dart';
+import 'package:v3/storage/authStorage.dart';
 import 'apimodel.dart';
 import 'dioclient.dart';
 

@@ -1,11 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:v3/api/dioclient.dart';
 import 'package:v3/storage/authStorage.dart';
 
-import '../api/dioclient.dart';
-import '../controller/petController.dart';
-import '../controller/authController.dart';
 
 class PetChatController extends GetxController {
   final DioClient _dio = Get.find<DioClient>();

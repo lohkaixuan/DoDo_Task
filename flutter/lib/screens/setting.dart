@@ -1,9 +1,9 @@
 // lib/screens/setting.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:v3/controller/settingController.dart';
+import 'package:v3/services/notification_service.dart';
 
-import '../controller/settingController.dart';
-import '../services/notification_service.dart';
 
 class SettingPage extends StatelessWidget {
   const SettingPage({super.key});
