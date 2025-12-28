@@ -11,7 +11,21 @@ class AuthStorage {
     await _secure.write(key: _kToken, value: token);
     await _secure.write(key: _kUserId, value: userId);
     await _secure.write(key: _kUserEmail, value: email);
+    await saveActiveUserKey(email);
   }
+
+  static const _kActiveUserKey = 'active_user_key';
+
+  static Future<void> saveActiveUserKey(String emailOrId) async {
+    await _secure.write(key: _kActiveUserKey, value: emailOrId);
+  }
+
+  static Future<String?> readActiveUserKey() =>
+      _secure.read(key: _kActiveUserKey);
+
+  static Future<void> clearActiveUserKey() =>
+      _secure.delete(key: _kActiveUserKey);
+
 
   static Future<String?> readToken() => _secure.read(key: _kToken);
   static Future<String?> readUserId() => _secure.read(key: _kUserId);
@@ -21,5 +35,6 @@ class AuthStorage {
     await _secure.delete(key: _kToken);
     await _secure.delete(key: _kUserId);
     await _secure.delete(key: _kUserEmail);
+    await _secure.delete(key: _kActiveUserKey);
   }
 }

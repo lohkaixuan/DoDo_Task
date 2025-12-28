@@ -1,9 +1,9 @@
 // lib/controller/taskController.dart
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart' as dio;
+
 import 'package:v3/api/dioclient.dart';
 import 'package:v3/models/task.dart';
 import 'package:v3/services/notification_service.dart';
@@ -46,10 +46,8 @@ class TaskController extends GetxController {
       time: const Duration(milliseconds: 400),
     );
 
-    // ✅ delay fetch until first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fetchTasks();
-    });
+    // ❗ 不要在 controller init 自动 fetch（你已经在 login 后 fetchTasks）
+    // WidgetsBinding.instance.addPostFrameCallback((_) => fetchTasks());
   }
 
   @override
@@ -69,13 +67,33 @@ class TaskController extends GetxController {
   }
 
   // =========================================================
+  // Auth guard helper
+  // =========================================================
+  Future<bool> _isLoggedIn() async {
+    final token = await AuthStorage.readToken();
+    final email = await AuthStorage.readUserEmail();
+    return token != null &&
+        token.isNotEmpty &&
+        email != null &&
+        email.isNotEmpty;
+  }
+
+  // =========================================================
   // Fetch
   // =========================================================
   bool _fetching = false;
+
   Future<void> fetchTasks() async {
     if (_fetching) return;
-    _fetching = true;
 
+    // ✅ guard: must be logged in
+    final loggedIn = await _isLoggedIn();
+    if (!loggedIn) {
+      debugPrint("⛔ fetchTasks blocked: not logged in");
+      return;
+    }
+
+    _fetching = true;
     try {
       final email = await AuthStorage.readUserEmail();
       if (email == null || email.isEmpty) return;
@@ -92,7 +110,6 @@ class TaskController extends GetxController {
       tasks.assignAll(list);
 
       Future.microtask(() async {
-        // ✅ permission 只做一次（下面 Step 2 会讲）
         await notifier.ensurePermission();
         for (final t in list) {
           await _scheduleAllNotifications(t);
@@ -100,7 +117,7 @@ class TaskController extends GetxController {
         }
       });
     } catch (e) {
-      print('⚠️ fetchTasks failed: $e');
+      debugPrint('⚠️ fetchTasks failed: $e');
     } finally {
       _fetching = false;
     }
@@ -110,13 +127,18 @@ class TaskController extends GetxController {
   // Add
   // =========================================================
   Future<void> addTask(Task t) async {
-    // local first
+    // ✅ local first (always) — UI must update even when logged out
     tasks.add(t);
     update();
 
-    // schedule local right away
+    final loggedIn = await _isLoggedIn();
+    if (!loggedIn) {
+      debugPrint("⛔ addTask: not logged in, skip schedule+sync");
+      return;
+    }
+
+    // schedule local right away (logged in only)
     await _scheduleAllNotifications(t);
-    await notifier.debugPending();
 
     // sync backend
     try {
@@ -126,7 +148,7 @@ class TaskController extends GetxController {
       body['flutter_id'] = _cleanId(t.id);
 
       final email = await AuthStorage.readUserEmail();
-      body['user_email'] = email ?? 'guest@dodo.com';
+      body['user_email'] = email; // ✅ logged in so it exists
 
       body['status'] = t.status.name;
       body['type'] = t.type.name;
@@ -134,7 +156,7 @@ class TaskController extends GetxController {
 
       await _dioClient.dio.post('/tasks', data: body);
     } catch (e) {
-      print('⚠️ addTask sync failed: $e');
+      debugPrint('⚠️ addTask sync failed: $e');
     }
   }
 
@@ -150,6 +172,13 @@ class TaskController extends GetxController {
     update();
 
     _petReactOnStatus(before, t);
+
+    final loggedIn = await _isLoggedIn();
+    if (!loggedIn) {
+      debugPrint("⛔ updateTask: not logged in, skip schedule+sync");
+      return null;
+    }
+
     await _scheduleAllNotifications(t);
 
     final body = t.toJson();
@@ -166,7 +195,7 @@ class TaskController extends GetxController {
     try {
       return await _dioClient.dio.put('/tasks/${_cleanId(t.id)}', data: body);
     } catch (e) {
-      print('⚠️ updateTask failed: $e');
+      debugPrint('⚠️ updateTask failed: $e');
       return null;
     }
   }
@@ -223,15 +252,21 @@ class TaskController extends GetxController {
   // Delete
   // =========================================================
   Future<void> removeById(String id) async {
-    await notifier.cancelForTask(id);
+    await notifier.cancelForTask(id); // ✅ always cancel (no auth needed)
 
     tasks.removeWhere((x) => x.id == id);
     update();
 
+    final loggedIn = await _isLoggedIn();
+    if (!loggedIn) {
+      debugPrint("⛔ delete: not logged in, skip backend");
+      return;
+    }
+
     try {
       await _dioClient.dio.delete('/tasks/${_cleanId(id)}');
     } catch (e) {
-      print('⚠️ delete failed: $e');
+      debugPrint('⚠️ delete failed: $e');
     }
   }
 
@@ -391,17 +426,23 @@ class TaskController extends GetxController {
   // Notifications Scheduling (core)
   // =========================================================
   Future<void> _scheduleAllNotifications(Task t) async {
-    // 1) cancel old schedules first
+    // ✅ ALWAYS cancel old schedules first (even when logged out)
     await notifier.cancelForTask(_cleanId(t.id));
 
-    // 2) skip if completed/archived
+    // ✅ guard: only schedule when logged in
+    final loggedIn = await _isLoggedIn();
+    if (!loggedIn) {
+      debugPrint("⛔ schedule blocked: not logged in (task=${t.id})");
+      return;
+    }
+
+    // skip if completed/archived
     if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) {
       return;
     }
 
     final now = DateTime.now();
 
-    // 判定是否 due today（singleDay: dueDateTime / ranged: dueDate）
     final bool dueToday = (t.type == TaskType.singleDay &&
             t.dueDateTime != null &&
             _isSameDay(t.dueDateTime!, now)) ||
@@ -409,20 +450,12 @@ class TaskController extends GetxController {
             t.dueDate != null &&
             _isSameDay(t.dueDate!, now));
 
-    // ✅ 今天 due 一定要提醒一次
     final bool allowNormalNoti = t.focusPrefs.notificationsEnabled;
 
-    // 如果不是 due today 且用户关了通知，就直接不排任何
+    // if not due today AND user disabled notifications -> no schedule
     if (!dueToday && !allowNormalNoti) return;
 
     final payload = _payloadForTask(t);
-
-    /*bool _notiChecked = false;
-    Future<void> _ensureNotiOnce() async {
-      if (_notiChecked) return;
-      _notiChecked = true;
-      await notifier.ensurePermission();
-    }*/
 
     // -------------------------
     // A) singleDay + dueDateTime
@@ -452,11 +485,8 @@ class TaskController extends GetxController {
         );
       }
 
-      // 2) DueTime once (ALWAYS must exist)
-      // If already past due time, schedule 1 min later so you still see it.
-      final dueSafe =
-          due.isAfter(now) ? due : now.add(const Duration(minutes: 1));
-
+      // 2) DueTime once (always)
+      final dueSafe = due.isAfter(now) ? due : now.add(const Duration(minutes: 1));
       await notifier.scheduleOneShot(
         taskId: _cleanId(t.id),
         key: 'dueTime',
@@ -467,38 +497,31 @@ class TaskController extends GetxController {
       );
 
       // 3) Repeats before dueTime (due-today only)
-      final allowNormalNoti = t.focusPrefs.notificationsEnabled;
-
-      // ✅ 你要的是：还没到 dueTime 才重复
       final canRepeat = isDueToday &&
           allowNormalNoti &&
           _repeatAllowed(t) &&
           (t.startDate == null) &&
-          now.isBefore(due); // <-- super important
+          now.isBefore(due);
 
       if (canRepeat) {
         final hours = _repeatHours(t);
-
-        // start from max(9:00, now+1min) to avoid scheduling in the past
         final startAt = DateTime(due.year, due.month, due.day, 9, 0);
         final safeStart = now.isAfter(startAt)
             ? now.add(const Duration(minutes: 1))
             : startAt;
 
-        // only repeat if the window makes sense
         if (safeStart.isBefore(due)) {
           await notifier.scheduleEveryNHoursToday(
             taskId: _cleanId(t.id),
             everyHours: hours,
-            endAt: due, // stop at dueTime ✅
+            endAt: due,
             title: 'Task Reminder',
             body: "Due today: ‘${t.title}’. Tap to focus!",
             payload: payload,
-            startHour: safeStart.hour, // optional: align start
+            startHour: safeStart.hour,
           );
         }
       }
-
       return;
     }
 
@@ -507,12 +530,9 @@ class TaskController extends GetxController {
     // -------------------------
     if (t.type == TaskType.ranged && t.dueDate != null) {
       final dueDate = t.dueDate!;
-      final dueToday0900 =
-          DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
-      final dueTime =
-          DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
+      final dueToday0900 = DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
+      final dueTime = DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
 
-      // If already past due date end, don't schedule
       if (!dueTime.isAfter(now)) return;
 
       // DueToday once
@@ -525,15 +545,12 @@ class TaskController extends GetxController {
           payload: payload,
         );
 
-        // Due day repeats ONLY (A plan)
         final canRepeat = allowNormalNoti && _repeatAllowed(t);
-        final hours = _repeatHours(t);
-
         if (canRepeat) {
           await notifier.scheduleEveryNHoursToday(
             taskId: _cleanId(t.id),
-            everyHours: hours,
-            endAt: dueTime, // ✅ ranged due day ends 23:59
+            everyHours: _repeatHours(t),
+            endAt: dueTime,
             title: 'Task Reminder',
             body: "Due today: ‘${t.title}’. Tap to focus!",
             payload: payload,
@@ -561,7 +578,7 @@ class TaskController extends GetxController {
         payload: payload,
       );
 
-      // Daily reminder once/day until due date (only if enabled)
+      // Daily reminder until due date
       if (allowNormalNoti) {
         await notifier.scheduleDailyUntilDue(
           taskId: _cleanId(t.id),
@@ -572,13 +589,10 @@ class TaskController extends GetxController {
           payload: payload,
         );
       }
-
       return;
     }
 
-    // -------------------------
-    // C) fallback (no due info) -> do nothing
-    // -------------------------
+    // C) fallback -> do nothing
   }
 
   // =========================================================
@@ -587,13 +601,11 @@ class TaskController extends GetxController {
   void _petReactOnStatus(Task before, Task after) {
     final now = DateTime.now();
 
-    // became late
     if (before.computeStatus(now) != TaskStatus.late &&
         after.computeStatus(now) == TaskStatus.late) {
       pet.onTaskLate();
     }
 
-    // started (notStarted -> inProgress)
     if (before.computeStatus(now) == TaskStatus.notStarted &&
         after.computeStatus(now) == TaskStatus.inProgress) {
       pet.onFocusStart();
