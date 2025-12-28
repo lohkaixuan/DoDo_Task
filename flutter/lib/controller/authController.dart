@@ -31,7 +31,8 @@ class AuthController extends GetxController {
       var res = await ApiService(dioClient).login(email, password);
 
       if (res.token != null && res.token!.isNotEmpty) {
-        await AuthStorage.save(res.token, res.id, res.email);
+        await AuthStorage.save(res.token!, res.id, res.email);
+        isLoggedIn.value = true;
 
         // ✅ 登录成功后再打 balance（这才是最稳的时机）
         await walletC.fetchBalance();
@@ -69,10 +70,14 @@ class AuthController extends GetxController {
     final notifier = Get.find<NotificationService>();
     final taskC = Get.find<TaskController>();
 
+    isLoggedIn.value = false;         // ✅ add logout state
+
     await notifier.cancelAllNotifications();
     await taskC.clearAll();
+
     await AuthStorage.clear(); // token/email...
     await AuthStorage.clearActiveUserKey();
+
     Get.offAllNamed('/login');
   }
 
