@@ -12,6 +12,7 @@ import 'package:v3/storage/authStorage.dart';
 import 'petController.dart';
 import 'walletController.dart';
 import 'settingController.dart';
+import 'package:v3/services/tts_service.dart'; // ✅ 你把 PetTalkService 放这里了
 
 class TaskController extends GetxController {
   final tasks = <Task>[].obs;
@@ -24,6 +25,8 @@ class TaskController extends GetxController {
   late final SettingController settingC;
   Worker? _settingsWorker;
 
+  bool _fetching = false;
+
   TaskController(this.notifier, this.pet);
 
   @override
@@ -33,7 +36,7 @@ class TaskController extends GetxController {
     walletC = Get.find<WalletController>();
     settingC = Get.find<SettingController>();
 
-    // ✅ settings debounce reschedule
+    // ✅ settings change => debounce reschedule
     final settingsSig = 0.obs;
     ever(settingC.mediumRepeatEnabled, (_) => settingsSig.value++);
     ever(settingC.mediumRepeatHours, (_) => settingsSig.value++);
@@ -42,12 +45,9 @@ class TaskController extends GetxController {
 
     _settingsWorker = debounce<int>(
       settingsSig,
-      (_) => _rescheduleAll(),
+      (_) => _rescheduleAllIfLoggedIn(),
       time: const Duration(milliseconds: 400),
     );
-
-    // ❗ 不要在 controller init 自动 fetch（你已经在 login 后 fetchTasks）
-    // WidgetsBinding.instance.addPostFrameCallback((_) => fetchTasks());
   }
 
   @override
@@ -56,9 +56,27 @@ class TaskController extends GetxController {
     super.onClose();
   }
 
-  Future<void> _rescheduleAll() async {
+  // =========================================================
+  // ✅ Auth Guard helpers
+  // =========================================================
+  Future<bool> _isLoggedIn() async {
+    final token = await AuthStorage.readToken();
+    final email = await AuthStorage.readUserEmail();
+    return token != null &&
+        token.trim().isNotEmpty &&
+        email != null &&
+        email.trim().isNotEmpty;
+  }
+
+  // =========================================================
+  // ✅ Reschedule all (only when logged in)
+  // =========================================================
+  Future<void> _rescheduleAllIfLoggedIn() async {
+    if (!await _isLoggedIn()) return;
+
     final snapshot = List<Task>.from(tasks);
     Future.microtask(() async {
+      await notifier.ensurePermission();
       for (final t in snapshot) {
         await _scheduleAllNotifications(t);
         await Future.delayed(const Duration(milliseconds: 10));
@@ -67,28 +85,13 @@ class TaskController extends GetxController {
   }
 
   // =========================================================
-  // Auth guard helper
-  // =========================================================
-  Future<bool> _isLoggedIn() async {
-    final token = await AuthStorage.readToken();
-    final email = await AuthStorage.readUserEmail();
-    return token != null &&
-        token.isNotEmpty &&
-        email != null &&
-        email.isNotEmpty;
-  }
-
-  // =========================================================
   // Fetch
   // =========================================================
-  bool _fetching = false;
-
   Future<void> fetchTasks() async {
     if (_fetching) return;
 
-    // ✅ guard: must be logged in
-    final loggedIn = await _isLoggedIn();
-    if (!loggedIn) {
+    // ✅ 改动 1：fetchTasks 先挡掉未登录
+    if (!await _isLoggedIn()) {
       debugPrint("⛔ fetchTasks blocked: not logged in");
       return;
     }
@@ -109,6 +112,7 @@ class TaskController extends GetxController {
 
       tasks.assignAll(list);
 
+      // ✅ 改动 2：只在登录状态下才 schedule + permission
       Future.microtask(() async {
         await notifier.ensurePermission();
         for (final t in list) {
@@ -127,28 +131,24 @@ class TaskController extends GetxController {
   // Add
   // =========================================================
   Future<void> addTask(Task t) async {
-    // ✅ local first (always) — UI must update even when logged out
+    // ✅ 改动 3：未登录直接不让 add（避免 guest task + 排程）
+    if (!await _isLoggedIn()) return;
+
+    // local first
     tasks.add(t);
     update();
 
-    final loggedIn = await _isLoggedIn();
-    if (!loggedIn) {
-      debugPrint("⛔ addTask: not logged in, skip schedule+sync");
-      return;
-    }
-
-    // schedule local right away (logged in only)
+    // schedule local right away
     await _scheduleAllNotifications(t);
 
     // sync backend
     try {
       final body = t.toJson();
       body.remove('id');
-
       body['flutter_id'] = _cleanId(t.id);
 
       final email = await AuthStorage.readUserEmail();
-      body['user_email'] = email; // ✅ logged in so it exists
+      body['user_email'] = email ?? 'guest@dodo.com';
 
       body['status'] = t.status.name;
       body['type'] = t.type.name;
@@ -164,6 +164,9 @@ class TaskController extends GetxController {
   // Update (return Response for coins)
   // =========================================================
   Future<dio.Response?> updateTask(Task t) async {
+    // ✅ 改动 4：update 也挡掉未登录（否则 put 会 401/422）
+    if (!await _isLoggedIn()) return null;
+
     final idx = tasks.indexWhere((x) => x.id == t.id);
     if (idx < 0) return null;
 
@@ -172,13 +175,6 @@ class TaskController extends GetxController {
     update();
 
     _petReactOnStatus(before, t);
-
-    final loggedIn = await _isLoggedIn();
-    if (!loggedIn) {
-      debugPrint("⛔ updateTask: not logged in, skip schedule+sync");
-      return null;
-    }
-
     await _scheduleAllNotifications(t);
 
     final body = t.toJson();
@@ -216,7 +212,6 @@ class TaskController extends GetxController {
     );
 
     final res = await updateTask(after);
-
     final data = res?.data;
     final coins = (data is Map) ? data['coins'] : null;
 
@@ -225,6 +220,11 @@ class TaskController extends GetxController {
     } else {
       walletC.fetchBalance();
     }
+
+    // ✅ 可选：完成任务时让宠物说一句（你刚刚选 3 很帅）
+    try {
+      await TtsService.instance.speak("Nice one! One task down 🦈✨");
+    } catch (_) {}
   }
 
   Future<void> undoComplete(String id) async {
@@ -237,7 +237,6 @@ class TaskController extends GetxController {
     final after = before.copyWith(status: TaskStatus.notStarted);
 
     final res = await updateTask(after);
-
     final data = res?.data;
     final coins = (data is Map) ? data['coins'] : null;
 
@@ -252,16 +251,13 @@ class TaskController extends GetxController {
   // Delete
   // =========================================================
   Future<void> removeById(String id) async {
-    await notifier.cancelForTask(id); // ✅ always cancel (no auth needed)
+    await notifier.cancelForTask(id);
 
     tasks.removeWhere((x) => x.id == id);
     update();
 
-    final loggedIn = await _isLoggedIn();
-    if (!loggedIn) {
-      debugPrint("⛔ delete: not logged in, skip backend");
-      return;
-    }
+    // ✅ 如果未登录就不打后端
+    if (!await _isLoggedIn()) return;
 
     try {
       await _dioClient.dio.delete('/tasks/${_cleanId(id)}');
@@ -315,11 +311,16 @@ class TaskController extends GetxController {
     final t = tasks[i];
     if (t.status != TaskStatus.inProgress) {
       updateTask(t.copyWith(status: TaskStatus.inProgress));
+
+      // ✅ 可选：开始 focus 说一句
+      try {
+        TtsService.instance.speak("Focus mode on. I’m with you 🦈");
+      } catch (_) {}
     }
   }
 
   // =========================================================
-  // Recommendation (for Dashboard)
+  // Recommendation (Dashboard)
   // =========================================================
   double _recommendScore(Task t, DateTime now) {
     if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) {
@@ -423,26 +424,23 @@ class TaskController extends GetxController {
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   // =========================================================
-  // Notifications Scheduling (core)
+  // ✅ Notifications Scheduling (core)
   // =========================================================
   Future<void> _scheduleAllNotifications(Task t) async {
-    // ✅ ALWAYS cancel old schedules first (even when logged out)
+    // ✅ 改动 5：最早就挡掉未登录（避免 logout 后还 schedule）
+    if (!await _isLoggedIn()) return;
+
+    // 1) cancel old schedules first
     await notifier.cancelForTask(_cleanId(t.id));
 
-    // ✅ guard: only schedule when logged in
-    final loggedIn = await _isLoggedIn();
-    if (!loggedIn) {
-      debugPrint("⛔ schedule blocked: not logged in (task=${t.id})");
-      return;
-    }
-
-    // skip if completed/archived
+    // 2) skip if completed/archived
     if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) {
       return;
     }
 
     final now = DateTime.now();
 
+    // due today?
     final bool dueToday = (t.type == TaskType.singleDay &&
             t.dueDateTime != null &&
             _isSameDay(t.dueDateTime!, now)) ||
@@ -452,7 +450,7 @@ class TaskController extends GetxController {
 
     final bool allowNormalNoti = t.focusPrefs.notificationsEnabled;
 
-    // if not due today AND user disabled notifications -> no schedule
+    // not due today + notifications disabled => schedule nothing
     if (!dueToday && !allowNormalNoti) return;
 
     final payload = _payloadForTask(t);
@@ -465,7 +463,6 @@ class TaskController extends GetxController {
       final dueDay0900 = DateTime(due.year, due.month, due.day, 9, 0);
       final isDueToday = _isSameDay(due, now);
 
-      // 1) DueToday once @ 9:00 (or catch up if already past 9)
       if (isDueToday) {
         await notifier.scheduleDueToday0900OrCatchUp(
           taskId: _cleanId(t.id),
@@ -485,7 +482,7 @@ class TaskController extends GetxController {
         );
       }
 
-      // 2) DueTime once (always)
+      // DueTime once
       final dueSafe = due.isAfter(now) ? due : now.add(const Duration(minutes: 1));
       await notifier.scheduleOneShot(
         taskId: _cleanId(t.id),
@@ -496,7 +493,7 @@ class TaskController extends GetxController {
         payload: payload,
       );
 
-      // 3) Repeats before dueTime (due-today only)
+      // repeats before dueTime (due-today only)
       final canRepeat = isDueToday &&
           allowNormalNoti &&
           _repeatAllowed(t) &&
@@ -505,6 +502,7 @@ class TaskController extends GetxController {
 
       if (canRepeat) {
         final hours = _repeatHours(t);
+
         final startAt = DateTime(due.year, due.month, due.day, 9, 0);
         final safeStart = now.isAfter(startAt)
             ? now.add(const Duration(minutes: 1))
@@ -522,6 +520,7 @@ class TaskController extends GetxController {
           );
         }
       }
+
       return;
     }
 
@@ -547,9 +546,10 @@ class TaskController extends GetxController {
 
         final canRepeat = allowNormalNoti && _repeatAllowed(t);
         if (canRepeat) {
+          final hours = _repeatHours(t);
           await notifier.scheduleEveryNHoursToday(
             taskId: _cleanId(t.id),
-            everyHours: _repeatHours(t),
+            everyHours: hours,
             endAt: dueTime,
             title: 'Task Reminder',
             body: "Due today: ‘${t.title}’. Tap to focus!",
@@ -578,7 +578,7 @@ class TaskController extends GetxController {
         payload: payload,
       );
 
-      // Daily reminder until due date
+      // Daily reminder once/day until due
       if (allowNormalNoti) {
         await notifier.scheduleDailyUntilDue(
           taskId: _cleanId(t.id),
@@ -589,10 +589,9 @@ class TaskController extends GetxController {
           payload: payload,
         );
       }
+
       return;
     }
-
-    // C) fallback -> do nothing
   }
 
   // =========================================================
@@ -601,11 +600,18 @@ class TaskController extends GetxController {
   void _petReactOnStatus(Task before, Task after) {
     final now = DateTime.now();
 
+    // became late
     if (before.computeStatus(now) != TaskStatus.late &&
         after.computeStatus(now) == TaskStatus.late) {
       pet.onTaskLate();
+
+      // ✅ 可选：late 时宠物安慰一句
+      try {
+        TtsService.instance.speak("It’s okay… we can still fix this together 🦈");
+      } catch (_) {}
     }
 
+    // started (notStarted -> inProgress)
     if (before.computeStatus(now) == TaskStatus.notStarted &&
         after.computeStatus(now) == TaskStatus.inProgress) {
       pet.onFocusStart();

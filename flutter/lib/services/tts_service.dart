@@ -1,34 +1,40 @@
-// lib/services/tts_service.dart
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart';
 
 class TtsService {
   TtsService._();
   static final TtsService instance = TtsService._();
 
-  final FlutterTts _tts = FlutterTts();
-  bool _inited = false;
+  final AudioPlayer _player = AudioPlayer();
 
-  Future<void> _ensureInit() async {
-    if (_inited) return;
-    await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(0.5);
-    await _tts.setVolume(1.0);
-    await _tts.setPitch(1.0);
-    _inited = true;
-  }
+  // ✅ 改成你的 Render 后端
+  final String baseUrl = "https://dodo-task-1.onrender.com";
 
   Future<void> speak(String text) async {
-    if (text.trim().isEmpty) return;
-    await _ensureInit();
+    final t = text.trim();
+    if (t.isEmpty) return;
+
     try {
-      await _tts.stop();
-      await _tts.speak(text);
-    } catch (_) {
-      // swallow; device may not have TTS engine
+      if (_player.playing) await _player.stop();
+
+      final url = "$baseUrl/tts/speak?text=${Uri.encodeComponent(t)}";
+      await _player.setUrl(url);
+      await _player.play();
+    } catch (e) {
+      // ignore: avoid_print
+      print("❌ TTS speak error: $e");
     }
   }
 
   Future<void> stop() async {
-    try { await _tts.stop(); } catch (_) {}
+    try {
+      await _player.stop();
+    } catch (_) {}
+  }
+
+  Future<void> dispose() async {
+    try {
+      await _player.dispose();
+    } catch (_) {}
   }
 }
+

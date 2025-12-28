@@ -1,76 +1,102 @@
-# app/services/pet_ai.py
-from __future__ import annotations
-import os, httpx, base64
-from typing import Any, Dict, Optional
-from dotenv import load_dotenv
+# app/services/pet_service_ai.py
+import os
+import json
+import httpx
+from typing import Optional
+
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-load_dotenv(override=True)
 
-# --- 本地情绪分析器 ---
-_vader = SentimentIntensityAnalyzer()
-
-# --- Groq 配置 ---
-GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or "").strip()
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-
-
-class HuggingFaceClient:
+class GroqClient:
     """
-    现在不再调用 Hugging Face Inference API：
-    - analyze_sentiment 用本地 VADER
-    - generate_reply 用 Groq（免费、低延迟）
+    Groq (OpenAI-compatible) chat completions client.
+    - Returns safe fallback text on any HTTP failure (including 401),
+      so your ASGI app will not crash on Render.
     """
+
     def __init__(self):
-        pass
+        self.api_key = os.getenv("GROQ_API_KEY", "").strip()
+        self.model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile").strip()
+        self.base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()
 
-    async def analyze_sentiment(self, text: str) -> Dict[str, Any]:
-        s = _vader.polarity_scores(text)
-        comp = s["compound"]
-        if comp >= 0.05:
-            return {"label": "POSITIVE", "score": float(comp)}
-        elif comp <= -0.05:
-            return {"label": "NEGATIVE", "score": float(-comp)}
-        else:
-            return {"label": "NEUTRAL", "score": float(abs(comp))}
+        # sentiment (optional, but nice for pet mood)
+        self._sentiment = SentimentIntensityAnalyzer()
 
-    async def generate_reply(self, prompt: str) -> str:
-        if not GROQ_API_KEY:
-            # 没有 Groq Key 的兜底
-            return "I’m here with you. Let’s take a tiny step together. 🌟"
+    def analyze_sentiment(self, text: str) -> str:
+        score = self._sentiment.polarity_scores(text)["compound"]
+        if score >= 0.5:
+            return "positive"
+        elif score <= -0.5:
+            return "negative"
+        return "neutral"
 
-        headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-        body = {
-            "model": "llama-3.1-8b-instant",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.8,
-            "max_tokens": 160
+    def _fallback(self, reason: str) -> str:
+        # keep it cute-ish but safe for production logs
+        return f"Oops 🦈 I can't reach my brain right now ({reason}). Try again in a moment!"
+
+    async def generate_reply(
+        self,
+        user_prompt: str,
+        *,
+        system_prompt: Optional[str] = None,
+        temperature: float = 0.8,
+        max_tokens: int = 220,
+    ) -> str:
+        # If key missing, never call network
+        if not self.api_key:
+            return self._fallback("missing GROQ_API_KEY")
+
+        sys = system_prompt or (
+            "You are a cute, playful virtual pet assistant. "
+            "Keep replies short, warm, and encouraging. "
+            "If user asks for unsafe content, refuse briefly."
+        )
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": sys},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": float(temperature),
+            "max_tokens": int(max_tokens),
         }
-        async with httpx.AsyncClient(timeout=40) as c:
-            r = await c.post(GROQ_URL, headers=headers, json=body)
-            r.raise_for_status()
-            data = r.json()
-            return data["choices"][0]["message"]["content"].strip()
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"{self.base_url}/chat/completions"
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(url, headers=headers, json=payload)
+
+                # Handle auth errors gracefully (the one that killed Render)
+                if r.status_code in (401, 403):
+                    return self._fallback("invalid GROQ_API_KEY")
+
+                r.raise_for_status()
+                data = r.json()
+
+            return (
+                data.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                    .strip()
+                or self._fallback("empty reply")
+            )
+
+        except httpx.HTTPStatusError as e:
+            # non-auth HTTP errors (429/5xx/etc)
+            code = getattr(e.response, "status_code", "unknown")
+            return self._fallback(f"http {code}")
+
+        except Exception as e:
+            # any unexpected crash
+            return self._fallback(f"error {type(e).__name__}")
 
 
-# --- Inworld（可选：等你搭代理后再启用） ---
-INWORLD_PROXY_URL = (os.getenv("INWORLD_PROXY_URL") or "").rstrip("/")
-INWORLD_API_KEY   = (os.getenv("INWORLD_API_KEY") or "").strip()
-
-class InworldClient:
-    def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None):
-        self.base_url = (base_url or INWORLD_PROXY_URL).rstrip("/")
-        self.api_key  = api_key or INWORLD_API_KEY
-
-    async def chat(self, character_id: str, user_id: str, text: str, context: dict | None = None) -> str:
-        if not self.base_url:
-            raise RuntimeError("INWORLD_PROXY_URL havent use（use_inworld=false run Groq first）")
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        payload = {"characterId": character_id, "userId": user_id, "text": text, "context": context or {}}
-        async with httpx.AsyncClient(timeout=40) as c:
-            r = await c.post(f"{self.base_url}/chat", headers=headers, json=payload)
-            r.raise_for_status()
-            data = r.json()
-            return str(data.get("reply") or r.text)
+# Backward-compatible alias (so you don't need to rewrite pet_ai.py imports)
+HuggingFaceClient = GroqClient

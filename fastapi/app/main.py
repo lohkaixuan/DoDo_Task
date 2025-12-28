@@ -8,9 +8,11 @@ load_dotenv(override=True)
 
 from .db import init_db
 from app.routers.pet_ai import router as pet_ai_router
-from .routers import tasks, wellbeing, ai, auth, health_productivity
+from .routers import tasks, wellbeing, ai, auth, health_productivity, tts 
 from .schemas.response import Envelope
 from app.routers import balance
+app.include_router(tts.router)
+app.include_router(pet_ai_router)
 
 app = FastAPI(
     title="DoDoTask Backend", 
