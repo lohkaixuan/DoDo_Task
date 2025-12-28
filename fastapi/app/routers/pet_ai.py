@@ -13,8 +13,7 @@ from app.schemas.response import Envelope
 from app.utils.response_utils import ok
 from app.logic.risk_mongo import compute_stress_score
 
-# GroqClient is aliased as HuggingFaceClient for backward compatibility
-from app.services.pet_service_ai import HuggingFaceClient, InworldClient
+from app.services.pet_service_ai import GroqClient
 
 router = APIRouter(prefix="/ai/pet", tags=["ai-pet"])
 
@@ -25,30 +24,26 @@ router = APIRouter(prefix="/ai/pet", tags=["ai-pet"])
 class ChatIn(BaseModel):
     user_id: str = Field(..., min_length=1)
     text: str = Field(..., min_length=1, max_length=1200)
-    use_inworld: bool = Field(default=False)
-    character_id: Optional[str] = Field(default_factory=lambda: os.getenv("INWORLD_CHARACTER_ID"))
 
 
 class ChatOut(BaseModel):
     reply: str
-    provider: Literal["inworld", "groq"]
+    provider: Literal["groq"]
     sentiment: Dict[str, Any] | None = None
     risk: Dict[str, Any] | None = None
     ts: datetime
+
+
+class SentimentIn(BaseModel):
+    text: str = Field(..., min_length=1, max_length=1200)
 
 
 # -----------------------------
 # Helpers
 # -----------------------------
 def _normalize_sentiment(s: Any) -> Dict[str, Any]:
-    """
-    Make sentiment always a dict:
-    - If pet_service_ai returns "positive"/"neutral"/"negative": convert to {label, score}
-    - If it returns dict already: keep it.
-    """
     if isinstance(s, dict):
-        # best effort ensure keys exist
-        label = s.get("label") or s.get("sentiment") or "neutral"
+        label = (s.get("label") or s.get("sentiment") or "neutral").strip().lower()
         score = float(s.get("score") or 0.0)
         return {"label": label, "score": score}
 
@@ -61,15 +56,11 @@ def _normalize_sentiment(s: Any) -> Dict[str, Any]:
 
 
 def _persona(sentiment: Dict[str, Any], risk: Dict[str, Any]) -> str:
-    """
-    Cute, short, supportive pet persona.
-    """
     label = sentiment.get("label", "neutral")
     score = float(sentiment.get("score", 0.0))
     stress = int(risk.get("score", 0) or 0)
     signals = risk.get("signals", []) or []
 
-    # stress guidance (simple + consistent)
     if stress >= 70:
         guidance = (
             "User seems stressed. Suggest a tiny break: breathe 3 times, drink water, "
@@ -81,9 +72,7 @@ def _persona(sentiment: Dict[str, Any], risk: Dict[str, Any]) -> str:
             "and one small task to start."
         )
     else:
-        guidance = (
-            "User stress is low. Celebrate consistency and suggest one small next step."
-        )
+        guidance = "User stress is low. Celebrate consistency and suggest one small next step."
 
     return (
         "You are DoDo, a playful cute virtual pet companion. "
@@ -110,11 +99,11 @@ def _build_prompt(user_text: str, sentiment: Dict[str, Any], risk: Dict[str, Any
 # -----------------------------
 @router.post("/chat", response_model=Envelope[ChatOut])
 async def chat(body: ChatIn, db=Depends(get_db)):
-    groq = HuggingFaceClient()
+    groq = GroqClient()
 
     # 1) sentiment + risk
     try:
-        s_raw = groq.analyze_sentiment(body.text)  # NOTE: in your pet_service_ai it's sync
+        s_raw = groq.analyze_sentiment(body.text)  # sync
     except Exception:
         s_raw = "neutral"
     senti = _normalize_sentiment(s_raw)
@@ -124,32 +113,14 @@ async def chat(body: ChatIn, db=Depends(get_db)):
     # 2) prompt
     prompt = _build_prompt(body.text, senti, risk)
 
-    # 3) provider selection: Inworld optional, default groq
-    reply = ""
-    provider: Literal["inworld", "groq"] = "groq"
+    # 3) groq reply
+    provider: Literal["groq"] = "groq"
+    reply = await groq.generate_reply(prompt)
 
-    if body.use_inworld:
-        iw = InworldClient()
-        try:
-            reply = await iw.chat(
-                character_id=body.character_id or "",
-                user_id=body.user_id,
-                text=body.text,
-                context={"mood": senti, "risk": {"score": risk["score"], "signals": risk["signals"]}},
-            )
-            provider = "inworld"
-        except Exception:
-            reply = await groq.generate_reply(prompt)
-            provider = "groq"
-    else:
-        reply = await groq.generate_reply(prompt)
-        provider = "groq"
-
-    # safety fallback
     if not reply or not reply.strip():
         reply = "Eep 🐾 I blanked out for a sec… try again?"
 
-    # 4) log
+    # 4) log (do not crash chat if logging fails)
     try:
         await db.events.insert_one(
             {
@@ -167,19 +138,14 @@ async def chat(body: ChatIn, db=Depends(get_db)):
             }
         )
     except Exception:
-        # don't crash user chat due to logging failure
         pass
 
     return ok(ChatOut(reply=reply, provider=provider, sentiment=senti, risk=risk, ts=datetime.utcnow()))
 
 
-class SentimentIn(BaseModel):
-    text: str = Field(..., min_length=1, max_length=1200)
-
-
 @router.post("/analyze/sentiment", response_model=Envelope[Dict[str, Any]])
 async def analyze_sentiment(body: SentimentIn):
-    groq = HuggingFaceClient()
+    groq = GroqClient()
     try:
         s_raw = groq.analyze_sentiment(body.text)
     except Exception:
@@ -189,6 +155,4 @@ async def analyze_sentiment(body: SentimentIn):
 
 @router.post("/analyze/image-caption", response_model=Envelope[Dict[str, Any]])
 async def image_caption(file: UploadFile = File(...)):
-    # Your current GroqClient does NOT implement captioning.
-    # Return a clean error instead of crashing.
     raise HTTPException(status_code=501, detail="Image caption is not implemented in this backend.")
