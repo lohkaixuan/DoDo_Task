@@ -37,23 +37,25 @@ class PetChatController extends GetxController {
         data: {
           'user_id': userId,
           'text': text,
-          'use_inworld': false,
         },
       );
 
-      final reply = (res.data is Map)
-          ? (res.data['reply']?.toString() ?? '')
-          : '';
+      String reply = '';
+      final data = res.data;
+      if (data is Map) {
+        reply = (data['data'] is Map)
+            ? (data['data']['reply']?.toString() ?? '')
+            : '';
+        reply = reply.isNotEmpty ? reply : (data['reply']?.toString() ?? '');
+      }
 
       if (reply.trim().isEmpty) {
         _append(ChatMessage.system("Pet got shy 🦈… no reply received."));
         return;
       }
 
-      // ✅ 先显示，再说话（UI 更顺）
       _append(ChatMessage.ai(reply));
       await TtsService.instance.speak(reply);
-
     } on DioException catch (e) {
       final code = e.response?.statusCode;
       final body = e.response?.data;
