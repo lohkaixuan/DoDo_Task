@@ -7,17 +7,11 @@ class CoinBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wallet = Get.find<WalletController>();
+    final WalletController wallet = Get.find<WalletController>();
 
-    return Obx(() {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
+    return Obx(() => InkWell(
+          onTap: () => Get.toNamed('/shop'),
           borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            // ✅ 直接跳
-            Get.toNamed('/shop');
-          },
           child: Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -50,8 +44,6 @@ class CoinBadge extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      );
-    });
+        ));
   }
 }
