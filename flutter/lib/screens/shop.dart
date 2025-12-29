@@ -9,7 +9,7 @@ class ShopPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Get.put(ShopController()); // safe: creates once
+    final c = Get.find<ShopController>(); // 建议用 Binding 预先 Put
 
     return Scaffold(
       appBar: AppBar(
@@ -25,12 +25,12 @@ class ShopPage extends StatelessWidget {
           children: [
             _sectionTitle("Food 🍎"),
             _grid(foods, c),
-            const SizedBox(height: 18),
 
+            const SizedBox(height: 18),
             _sectionTitle("Decor ✨"),
             _grid(decors, c),
-            const SizedBox(height: 18),
 
+            const SizedBox(height: 18),
             if (c.activeDecor.value != null)
               Text("Active decor: ${c.activeDecor.value}", style: const TextStyle(color: Colors.black54)),
           ],
@@ -51,7 +51,7 @@ class ShopPage extends StatelessWidget {
       itemCount: items.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisExtent: 220,
+        mainAxisExtent: 240,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -60,6 +60,9 @@ class ShopPage extends StatelessWidget {
   }
 
   Widget _itemCard(ShopItem it, ShopController c) {
+    final owned = (it.category == ShopCategory.food) ? (c.qty(it) > 0) : c.isOwnedDecor(it.id);
+    final isActive = (it.category == ShopCategory.decor) ? c.isActiveDecor(it.id) : false;
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -71,19 +74,19 @@ class ShopPage extends StatelessWidget {
             Text(it.name, style: const TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Text("Price: ${it.price} 🪙"),
+            const SizedBox(height: 4),
 
             if (it.category == ShopCategory.food)
               Text("Owned: ${c.qty(it)}", style: const TextStyle(color: Colors.black54)),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
-            // Buttons
             if (it.category == ShopCategory.food) ...[
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: c.loading.value ? null : () => c.purchase(it),
+                      onPressed: c.loading.value ? null : () => c.buyFood(it),
                       child: const Text("Buy"),
                     ),
                   ),
@@ -97,22 +100,21 @@ class ShopPage extends StatelessWidget {
                 ],
               ),
             ] else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: c.loading.value ? null : () => c.purchase(it),
-                      child: const Text("Buy"),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: (c.loading.value || !c.isOwned(it)) ? null : () => c.equipDecor(it),
-                      child: const Text("Equip"),
-                    ),
-                  ),
-                ],
+              // ✅ Decor：Buy 在上，Equip 在下（两行，不挤）
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (c.loading.value || owned) ? null : () => c.buyDecor(it),
+                  child: Text(owned ? "Owned" : "Buy"),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: (c.loading.value || !owned) ? null : () => c.equipDecor(it),
+                  child: Text(isActive ? "Equipped" : "Equip"),
+                ),
               ),
             ],
           ],

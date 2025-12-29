@@ -9,221 +9,157 @@ class ShopController extends GetxController {
   final DioClient _dio = Get.find<DioClient>();
   final WalletController walletC = Get.find<WalletController>();
 
+  final items = <ShopItem>[].obs;
+
+  // inventory
+  final foodQty = <String, int>{}.obs;        // itemId -> qty
+  final ownedDecors = <String>{}.obs;         // set of decor ids
+  final activeDecor = RxnString();            // decor id
   final loading = false.obs;
-
-  // Inventory from backend
-  final foodsQty = <String, int>{}.obs;       // itemId -> qty
-  final decorsOwned = <String, bool>{}.obs;   // itemId -> owned
-  final activeDecor = RxnString();
-
-  // ✅ Your shop catalog (local assets)
-  final items = <ShopItem>[
-    const ShopItem(
-      id: 'food_apple',
-      name: 'Apple',
-      price: 5,
-      category: ShopCategory.food,
-      hunger: 10,
-      asset: 'assets/shop/food/apple.png',
-    ),
-    const ShopItem(
-      id: 'food_milk',
-      name: 'Milk',
-      price: 8,
-      category: ShopCategory.food,
-      hunger: 15,
-      asset: 'assets/shop/food/milk.png',
-    ),
-    const ShopItem(
-      id: 'food_bento',
-      name: 'Bento',
-      price: 15,
-      category: ShopCategory.food,
-      hunger: 25,
-      asset: 'assets/shop/food/bento.png',
-    ),
-    const ShopItem(
-      id: 'decor_lamp',
-      name: 'Lamp',
-      price: 30,
-      category: ShopCategory.decor,
-      asset: 'assets/shop/decor/lamp.png',
-    ),
-    const ShopItem(
-      id: 'decor_plant',
-      name: 'Plant',
-      price: 25,
-      category: ShopCategory.decor,
-      asset: 'assets/shop/decor/plant.png',
-    ),
-  ];
 
   @override
   void onInit() {
     super.onInit();
-    fetchInventory();
+    loadAll();
   }
 
-  Future<String> _userIdOrGuest() async {
-    final uid = await AuthStorage.readUserId();
-    if (uid != null && uid.trim().isNotEmpty) return uid.trim();
-    return 'guest-${DateTime.now().millisecondsSinceEpoch}';
+  Future<void> loadAll() async {
+    await walletC.fetchBalance();
+    await fetchItems();
+    await fetchInventory();
+  }
+
+  Future<String> _uid() async {
+    final v = await AuthStorage.readUserId();
+    return (v != null && v.trim().isNotEmpty) ? v.trim() : 'guest';
   }
 
   // -------------------------
-  // Inventory
+  // API calls
   // -------------------------
+  Future<void> fetchItems() async {
+    try {
+      final res = await _dio.dio.get('/shop/items');
+      final data = res.data;
+
+      // support Envelope {data:[...]} or raw list
+      final list = (data is Map && data['data'] is List)
+          ? (data['data'] as List)
+          : (data is List ? data : const []);
+
+      items.assignAll(
+        list.map((e) => ShopItem.fromJson(Map<String, dynamic>.from(e))).toList(),
+      );
+    } catch (_) {
+      // fallback: hardcode (optional)
+      items.assignAll(const [
+        ShopItem(id: 'apple', name: 'Apple', category: ShopCategory.food, price: 5, asset: 'assets/shop/food/apple.png', hunger: 10),
+        ShopItem(id: 'milk', name: 'Milk', category: ShopCategory.food, price: 8, asset: 'assets/shop/food/milk.png', hunger: 15),
+        ShopItem(id: 'bento', name: 'Bento', category: ShopCategory.food, price: 12, asset: 'assets/shop/food/bento.png', hunger: 25),
+        ShopItem(id: 'lamp', name: 'Lamp', category: ShopCategory.decor, price: 30, asset: 'assets/shop/decor/lamp.png'),
+        ShopItem(id: 'plant', name: 'Plant', category: ShopCategory.decor, price: 25, asset: 'assets/shop/decor/plant.png'),
+      ]);
+    }
+  }
+
   Future<void> fetchInventory() async {
-    final token = await AuthStorage.readToken();
-    if (token == null || token.isEmpty) return;
-
-    final userId = await _userIdOrGuest();
-
+    final userId = await _uid();
     try {
-      loading.value = true;
       final res = await _dio.dio.get('/shop/inventory/$userId');
-      final data = (res.data is Map) ? res.data['data'] : null;
-      if (data is! Map) return;
+      final data = (res.data is Map) ? res.data : {};
 
-      final foods = Map<String, dynamic>.from(data['foods'] ?? {});
-      final decors = Map<String, dynamic>.from(data['decors'] ?? {});
+      final inv = (data['data'] ?? data) as Map;
+      final foods = (inv['foods'] is Map) ? Map<String, dynamic>.from(inv['foods']) : <String, dynamic>{};
+      final decors = (inv['decors'] is Map) ? Map<String, dynamic>.from(inv['decors']) : <String, dynamic>{};
 
-      foodsQty.assignAll(
-        foods.map((k, v) => MapEntry(k.toString(), (v as num).toInt())),
-      );
-
-      decorsOwned.assignAll(
-        decors.map((k, v) => MapEntry(k.toString(), v == true)),
-      );
-
-      activeDecor.value = data['active_decor']?.toString();
+      foodQty.assignAll(foods.map((k, v) => MapEntry(k, (v is num) ? v.toInt() : int.tryParse('$v') ?? 0)));
+      ownedDecors.assignAll(decors.keys.map((e) => e.toString()));
+      activeDecor.value = inv['active_decor']?.toString();
     } catch (e) {
-      // ignore: avoid_print
-      print('⚠️ fetchInventory failed: $e');
-    } finally {
-      loading.value = false;
+      // keep local empty if fail
     }
   }
 
+  int qty(ShopItem it) => foodQty[it.id] ?? 0;
+  bool isOwnedDecor(String decorId) => ownedDecors.contains(decorId);
+  bool isActiveDecor(String decorId) => activeDecor.value == decorId;
+
   // -------------------------
-  // Purchase
+  // Actions
   // -------------------------
-  Future<void> purchase(ShopItem item) async {
-    final token = await AuthStorage.readToken();
-    if (token == null || token.isEmpty) {
-      Get.snackbar("Login first 🦈", "Please login to use shop.");
-      return;
-    }
+  Future<void> buyFood(ShopItem it) => _purchase(it);
+  Future<void> buyDecor(ShopItem it) => _purchase(it);
 
-    // quick UI guard
-    if (walletC.coins.value < item.price) {
-      Get.snackbar("Not enough coins 🪙", "Earn more coins to buy ${item.name}!");
-      return;
-    }
+  Future<void> _purchase(ShopItem it) async {
+    if (loading.value) return;
+    loading.value = true;
 
-    final userId = await _userIdOrGuest();
-
+    final userId = await _uid();
     try {
-      loading.value = true;
-
-      final res = await _dio.dio.post(
-        '/shop/purchase',
-        data: {
-          "user_id": userId,
-          "item_id": item.id,
-          "item_type": item.type, // "food"/"decor"
-          "price": item.price,
-          "name": item.name,
-        },
-      );
-
-      final data = (res.data is Map) ? res.data['data'] : null;
-      if (data is Map && data['coins'] != null) {
-        walletC.setCoins((data['coins'] as num).toInt());
-      } else {
-        await walletC.fetchBalance();
-      }
-
-      // Update inventory locally for snappy UI
-      if (item.category == ShopCategory.food) {
-        foodsQty[item.id] = (foodsQty[item.id] ?? 0) + 1;
-      } else {
-        decorsOwned[item.id] = true;
-      }
-
-      Get.snackbar("Purchased 🎉", "You bought ${item.name}!");
-    } catch (e) {
-      // ignore: avoid_print
-      print('⚠️ purchase failed: $e');
-      Get.snackbar("Purchase failed", e.toString());
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  // -------------------------
-  // Use food
-  // -------------------------
-  Future<void> useFood(ShopItem item) async {
-    if (item.category != ShopCategory.food) return;
-
-    final qty = foodsQty[item.id] ?? 0;
-    if (qty <= 0) {
-      Get.snackbar("No item 🥺", "You don't have ${item.name}.");
-      return;
-    }
-
-    final userId = await _userIdOrGuest();
-
-    try {
-      loading.value = true;
-      await _dio.dio.post('/shop/use-food', data: {
-        "user_id": userId,
-        "item_id": item.id,
+      final res = await _dio.dio.post('/shop/purchase', data: {
+        'user_id': userId,
+        'item_id': it.id,
       });
 
-      foodsQty[item.id] = qty - 1;
-      Get.snackbar("Nom nom 🦈", "${item.name} used! Hunger +${item.hunger}");
+      final data = (res.data is Map) ? res.data : {};
+      final out = (data['data'] ?? data) as Map;
+
+      // update coins
+      final coins = out['coins'];
+      if (coins is num) walletC.coins.value = coins.toInt();
+
+      // refresh inventory
+      await fetchInventory();
+
+      Get.snackbar('Purchased 🦈', '${it.name} acquired!');
     } catch (e) {
-      Get.snackbar("Use failed", e.toString());
+      Get.snackbar('Purchase failed', e.toString());
     } finally {
       loading.value = false;
     }
   }
 
-  // -------------------------
-  // Equip decor
-  // -------------------------
-  Future<void> equipDecor(ShopItem item) async {
-    if (item.category != ShopCategory.decor) return;
+  Future<void> useFood(ShopItem it) async {
+    if (loading.value) return;
+    if (qty(it) <= 0) return;
 
-    final owned = decorsOwned[item.id] == true;
-    if (!owned) {
-      Get.snackbar("Not owned 🥺", "Buy it first!");
-      return;
-    }
-
-    final userId = await _userIdOrGuest();
+    loading.value = true;
+    final userId = await _uid();
 
     try {
-      loading.value = true;
-      await _dio.dio.post('/shop/equip-decor', data: {
-        "user_id": userId,
-        "item_id": item.id,
+      await _dio.dio.post('/shop/use', data: {
+        'user_id': userId,
+        'item_id': it.id,
       });
 
-      activeDecor.value = item.id;
-      Get.snackbar("Equipped ✨", "${item.name} is now active!");
+      await fetchInventory();
+      Get.snackbar('Yum 🍎', 'DoDo enjoyed ${it.name}!');
     } catch (e) {
-      Get.snackbar("Equip failed", e.toString());
+      Get.snackbar('Use failed', e.toString());
     } finally {
       loading.value = false;
     }
   }
 
-  bool isOwned(ShopItem item) => item.category == ShopCategory.food
-      ? (foodsQty[item.id] ?? 0) > 0
-      : (decorsOwned[item.id] == true);
+  Future<void> equipDecor(ShopItem it) async {
+    if (loading.value) return;
+    if (!isOwnedDecor(it.id)) return;
 
-  int qty(ShopItem item) => foodsQty[item.id] ?? 0;
+    loading.value = true;
+    final userId = await _uid();
+
+    try {
+      await _dio.dio.post('/shop/equip', data: {
+        'user_id': userId,
+        'decor_id': it.id,
+      });
+
+      await fetchInventory();
+      Get.snackbar('Equipped ✨', '${it.name} is now active!');
+    } catch (e) {
+      Get.snackbar('Equip failed', e.toString());
+    } finally {
+      loading.value = false;
+    }
+  }
 }
