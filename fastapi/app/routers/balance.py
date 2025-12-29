@@ -10,8 +10,6 @@ class SpendRequest(BaseModel):
     amount: int
     item_name: str
 
-#少一個放進去database的
-
 # 💰 1. 查余额
 @router.get("/balance", tags=["Gamification"])
 async def get_balance(user: User = Depends(get_current_user)):

@@ -116,10 +116,6 @@ class SettingPage extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700),
                       ),
-                      ElevatedButton(
-                        onPressed: () async => notifier.showNowTest(),
-                        child: const Text("Test Notification Now"),
-                      ),
                       const SizedBox(height: 8),
                       const Text(
                         'Rules:',

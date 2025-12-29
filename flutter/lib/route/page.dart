@@ -14,6 +14,7 @@ import 'package:v3/screens/setting.dart';
 import 'package:v3/screens/dashboard.dart';
 import 'package:v3/screens/all_task.dart';
 import 'package:v3/screens/register.dart';
+import 'package:v3/screens/shop.dart';
 import 'package:v3/screens/task_today.dart';
 
 
@@ -76,6 +77,10 @@ class AppPages {
     // Pet chat (kept as a separate page)
     GetPage(name: '/pet', 
     page: () => const PetChatScreen()
+    ),
+    //setting page function
+    GetPage(name: '/shop', 
+    page: () => const ShopPage()
     ),
   ];
 }

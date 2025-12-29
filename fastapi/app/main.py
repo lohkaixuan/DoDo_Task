@@ -19,6 +19,7 @@ from app.routers import (
     health_productivity,
     tts,
     balance,
+    shop,
 )
 from app.routers.pet_ai import router as pet_ai_router
 
@@ -32,28 +33,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# -------------------------
-# CORS
-# -------------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# -------------------------
-# Routers
-# -------------------------
-app.include_router(tts.router)            # 🎤 Edge TTS
-app.include_router(pet_ai_router)         # 🐾 Pet Chat (Groq)
-app.include_router(tasks.router)
-app.include_router(wellbeing.router)
-app.include_router(ai.router)
-app.include_router(auth.router)
-app.include_router(health_productivity.router)
-app.include_router(balance.router)
 
 # -------------------------
 # Exceptions
@@ -80,12 +59,39 @@ async def validation_exc_handler(_: Request, exc: RequestValidationError):
         ).model_dump(),
     )
 
+
+# -------------------------
+# CORS
+# -------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # -------------------------
 # Startup
 # -------------------------
 @app.on_event("startup")
 async def _startup():
     await init_db()
+
+
+# -------------------------
+# Routers
+# -------------------------
+app.include_router(tts.router)            # 🎤 Edge TTS
+app.include_router(pet_ai_router)         # 🐾 Pet Chat (Groq)
+app.include_router(tasks.router)
+app.include_router(wellbeing.router)
+app.include_router(ai.router)
+app.include_router(auth.router)
+app.include_router(health_productivity.router)
+app.include_router(balance.router)
+app.include_router(shop.router)
 
 # -------------------------
 # Health

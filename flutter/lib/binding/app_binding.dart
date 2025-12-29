@@ -8,6 +8,7 @@ import 'package:v3/controller/petController.dart';
 import 'package:v3/controller/settingController.dart';
 import 'package:v3/controller/taskController.dart';
 import 'package:v3/controller/walletController.dart';
+import 'package:v3/controller/shopController.dart';
 import 'package:v3/services/notification_service.dart';
 
 class AppBinding extends Bindings {
@@ -25,6 +26,7 @@ class AppBinding extends Bindings {
     Get.put<SettingController>(SettingController(), permanent: true);
     Get.put<PetController>(PetController(), permanent: true);
     Get.put<AuthController>(AuthController(), permanent: true);
+    Get.put<ShopController>(ShopController(), permanent: true);
 
     Get.lazyPut<TaskController>(
       () => TaskController(notifier, Get.find<PetController>()),
