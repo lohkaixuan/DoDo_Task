@@ -314,7 +314,7 @@ class TaskController extends GetxController {
 
       // ✅ 可选：开始 focus 说一句
       try {
-        TtsService.instance.speak("Focus mode on. I’m with you 🦈");
+        TtsService.instance.speak("Focus mode on. I’m with you ");
       } catch (_) {}
     }
   }

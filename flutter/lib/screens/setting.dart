@@ -52,7 +52,7 @@ class SettingPage extends StatelessWidget {
                             onPressed: () async {
                               final enabled = await notifier.areEnabled();
                               if (enabled) {
-                                Get.snackbar('All good 🦈',
+                                Get.snackbar('All good',
                                     'Notifications are already enabled.');
                                 return;
                               }
@@ -67,6 +67,46 @@ class SettingPage extends StatelessWidget {
                             },
                             icon: const Icon(Icons.notifications_active),
                             label: const Text('Enable Notifications'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ─────────────────────────────────────────────
+            // Mood Tracking
+            // ─────────────────────────────────────────────
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Mood Tracking',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Track your mood daily to improve your mental health.',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              Get.toNamed('/mood_tracking');
+                            },
+                            icon: const Icon(Icons.mood),
+                            label: const Text('Here is your mood log'),
                           ),
                         ),
                       ],

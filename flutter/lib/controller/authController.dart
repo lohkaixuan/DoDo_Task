@@ -43,7 +43,8 @@ class AuthController extends GetxController {
         Get.snackbar("Login failed", "No token");
       }
     } catch (e) {
-      Get.snackbar('Login error', e.toString());
+      Get.snackbar('Login error', 'Password does not match or user not found');
+        //'Login error', e.toString());
     } finally {
       isLoading.value = false;
     }

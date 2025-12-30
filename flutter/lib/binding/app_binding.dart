@@ -3,7 +3,8 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:v3/api/dioclient.dart';
 import 'package:v3/controller/authController.dart';
-import 'package:v3/controller/insightsController.dart'; 
+import 'package:v3/controller/insightsController.dart';
+import 'package:v3/controller/moodController.dart'; 
 import 'package:v3/controller/petController.dart';
 import 'package:v3/controller/settingController.dart';
 import 'package:v3/controller/taskController.dart';
@@ -32,6 +33,9 @@ class AppBinding extends Bindings {
       () => TaskController(notifier, Get.find<PetController>()),
       fenix: true,
     );
+
+    Get.lazyPut(() => MoodController(), fenix: true);
+
 
     Get.put<InsightsController>(InsightsController(), permanent: true);
 
