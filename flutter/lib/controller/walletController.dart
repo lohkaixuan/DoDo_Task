@@ -65,4 +65,8 @@ class WalletController extends GetxController {
 
     return false;
   }
+
+  void setCoins(int v) {
+    coins.value = v;
+  }
 }

@@ -354,6 +354,11 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
       endD = DateTime(_endDate!.year, _endDate!.month, _endDate!.day);
     }
 
+    if (_estMins.text.trim().isEmpty && _estHours.text.trim().isEmpty) {
+      Get.snackbar('Your estimate is empty', 'Please enter estimated time.');
+      return;
+    }
+
     final int estMinutes = (_parseInt(_estHours) * 60) + _parseInt(_estMins);
     final notif = _buildNotificationPrefs();
 
