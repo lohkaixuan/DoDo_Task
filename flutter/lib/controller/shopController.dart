@@ -43,12 +43,12 @@ class ShopController extends GetxController {
   bool isOwnedDecor(ShopItem it) => (decorsOwned[it.id] ?? false);
 
   bool isActiveDecor(ShopItem it) => activeDecor.value == it.id;
+  final refreshTick = 0.obs;
 
   Future<void> refreshAll() async {
-    await Future.wait([
-      loadInventory(),
-      wallet.fetchBalance(),
-    ]);
+    await loadInventory();
+    await wallet.fetchBalance();
+    refreshTick.value++;   
   }
 
   Future<void> loadInventory() async {

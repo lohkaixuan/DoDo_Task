@@ -19,12 +19,13 @@ class ShopPage extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: c.refreshAll,
+            onPressed: ()async => await c.refreshAll(),
             icon: const Icon(Icons.refresh),
           )
         ],
       ),
       body: Obx(() {
+        c.refreshTick.value; // react to refreshes
         final foods = c.items.where((x) => x.category == ShopCategory.food).toList();
         final decors = c.items.where((x) => x.category == ShopCategory.decor).toList();
 
