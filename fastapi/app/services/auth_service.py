@@ -9,6 +9,7 @@ from bson import ObjectId
 
 from app.db import get_db
 from app.config import settings
+from fastapi import Header, HTTPException
 
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -175,3 +176,22 @@ async def verify_token_and_get_user(token: str) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="Token is no longer valid (rotated)")
 
     return user
+
+async def require_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid Authorization header (expected Bearer token)")
+
+    token = parts[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Empty token")
+
+    user = await verify_token_and_get_user(token)
+    return user
+
+async def require_user_id(authorization: Optional[str] = Header(None)) -> str:
+    user = await require_user(authorization)
+    return str(user["_id"])
