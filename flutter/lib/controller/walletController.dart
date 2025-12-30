@@ -40,7 +40,7 @@ class WalletController extends GetxController {
   }) async {
     final token = await AuthStorage.readToken();
     if (token == null || token.isEmpty) {
-      Get.snackbar("Login required 🦈", "Please login to use the shop.");
+      Get.snackbar("Login required", "Please login to use the shop.");
       return false;
     }
 

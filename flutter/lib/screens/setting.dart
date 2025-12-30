@@ -106,7 +106,7 @@ class SettingPage extends StatelessWidget {
                               Get.toNamed('/mood_tracking');
                             },
                             icon: const Icon(Icons.mood),
-                            label: const Text('Here is your mood log'),
+                            label: const Text('Record Mood'),
                           ),
                         ),
                       ],
@@ -230,7 +230,7 @@ class SettingPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Dodo Task 🦈',
+                      'Dodo Task Manager',
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),

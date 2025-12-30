@@ -48,7 +48,7 @@ class ShopController extends GetxController {
   Future<void> refreshAll() async {
     await loadInventory();
     await wallet.fetchBalance();
-    refreshTick.value++;   
+    refreshTick.value++;
   }
 
   Future<void> loadInventory() async {
@@ -83,17 +83,10 @@ class ShopController extends GetxController {
     loading.value = true;
 
     try {
-      final uid = await _userId();
-      if (uid == null) {
-        Get.snackbar("Login required 🦈", "Please login to use the shop.");
-        return;
-      }
-
       final res = await _dio.dio.post(
         '/shop/purchase',
         data: {
-          "user_id": uid,
-          "item_id": it.id,
+          'item_id': it.id,
           "item_type": it.itemTypeString,
           "price": it.price,
           "name": it.name,
@@ -101,22 +94,24 @@ class ShopController extends GetxController {
         options: await _authOpt(),
       );
 
-      final data = (res.data is Map) ? (res.data['data'] as Map?) : null;
-      if (data == null) {
-        Get.snackbar("Purchase ✅", "Bought ${it.name}");
-        await refreshAll();
-        return;
-      }
-
-      if (data['coins'] != null) {
+      // ✅ 1) Update coins
+      final data = res.data['data'] as Map<String, dynamic>;
+      if (data['coins'] != null)
         wallet.setCoins((data['coins'] as num).toInt());
-      }
 
-      // backend purchase currently returns only {coins, item_id, type}
-      // so we re-load inventory to update counts
-      await loadInventory();
+      // ✅ 2) INSTANT UI update (no refresh needed)
+      if (it.category == ShopCategory.food) {
+        foodsOwned[it.id] = (foodsOwned[it.id] ?? 0) + 1;
+        foodsOwned.refresh(); // important for map
+      } else {
+        decorsOwned[it.id] = true;
+        decorsOwned.refresh();
+      }
 
       Get.snackbar("Purchased ✅", "You bought ${it.name}!");
+
+      // ✅ Optional: sync from server quietly
+      // await loadInventory();
     } on DioException catch (e) {
       Get.snackbar("Purchase failed ❌", "${e.response?.data ?? e.message}");
     } finally {
@@ -129,21 +124,23 @@ class ShopController extends GetxController {
     loading.value = true;
 
     try {
-      final uid = await _userId();
-      if (uid == null) {
-        Get.snackbar("Login required 🦈", "Please login first.");
-        return;
-      }
-
-      final res = await _dio.dio.post(
+      await _dio.dio.post(
         '/shop/use-food',
-        data: {"user_id": uid, "item_id": it.id},
+        data: {"item_id": it.id},
         options: await _authOpt(),
       );
 
+      // ✅ INSTANT UI update
+      final current = foodsOwned[it.id] ?? 0;
+      if (current > 0) {
+        foodsOwned[it.id] = current - 1;
+        foodsOwned.refresh();
+      }
+
+      Get.snackbar("Yum! 🍽️", "${it.name} used.");
+
       // backend returns {used, item_id} so reload inventory
       await loadInventory();
-      Get.snackbar("Yum! 🍽️", "${it.name} used.");
     } on DioException catch (e) {
       Get.snackbar("Use failed ❌", "${e.response?.data ?? e.message}");
     } finally {
@@ -158,7 +155,7 @@ class ShopController extends GetxController {
     try {
       final uid = await _userId();
       if (uid == null) {
-        Get.snackbar("Login required 🦈", "Please login first.");
+        Get.snackbar("Login required", "Please login first.");
         return;
       }
 

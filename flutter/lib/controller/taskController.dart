@@ -223,7 +223,7 @@ class TaskController extends GetxController {
 
     // ✅ 可选：完成任务时让宠物说一句（你刚刚选 3 很帅）
     try {
-      await TtsService.instance.speak("Nice one! One task down 🦈✨");
+      await TtsService.instance.speak("Nice one! One task down ✨");
     } catch (_) {}
   }
 
@@ -607,7 +607,7 @@ class TaskController extends GetxController {
 
       // ✅ 可选：late 时宠物安慰一句
       try {
-        TtsService.instance.speak("It’s okay… we can still fix this together 🦈");
+        TtsService.instance.speak("It’s okay… we can still fix this together. Lets go ");
       } catch (_) {}
     }
 

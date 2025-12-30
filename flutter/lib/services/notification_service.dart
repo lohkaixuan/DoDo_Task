@@ -434,7 +434,7 @@ Future<int> _idDaily(String taskId, String key) async {
     await ensurePermission();
     await _plugin.show(
       999999,
-      "TEST 🦈",
+      "TESTing notification",
       "If you see this, notifications are working!",
       const NotificationDetails(
         android: AndroidNotificationDetails(

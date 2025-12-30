@@ -114,7 +114,7 @@ class MoodTrackingPage extends StatelessWidget {
               else if (c.history.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text("No mood logs yet. Try logging one! 🦈"),
+                  child: Text("No mood logs yet. Try logging one! 😊"),
                 )
               else
                 ...c.history.map((MoodLog m) => _historyTile(m, _emoji, _fmt)),

@@ -32,7 +32,7 @@ class GroqClient:
 
     def _fallback(self, reason: str) -> str:
         # keep it cute-ish but safe for production logs
-        return f"Oops 🦈 I can't reach my brain right now ({reason}). Try again in a moment!"
+        return f"Oops... I can't reach my brain right now ({reason}). Try again in a moment!"
 
     async def generate_reply(
         self,

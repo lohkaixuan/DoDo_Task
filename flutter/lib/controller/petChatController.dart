@@ -50,7 +50,7 @@ class PetChatController extends GetxController {
       }
 
       if (reply.trim().isEmpty) {
-        _append(ChatMessage.system("Pet got shy 🦈… no reply received."));
+        _append(ChatMessage.system("Pet got shy … no reply received."));
         return;
       }
 
