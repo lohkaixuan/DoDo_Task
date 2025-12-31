@@ -10,7 +10,7 @@ from bson import ObjectId
 from app.db import get_db
 from app.utils.response_utils import ok
 from app.schemas.response import Envelope
-from app.services.auth_service import require_user_id  # ✅ 你 wellbeing 用的那个
+from app.services.auth_service import require_user_id
 
 router = APIRouter(prefix="/shop", tags=["shop"])
 
@@ -28,6 +28,7 @@ class UseFoodIn(BaseModel):
 class EquipDecorIn(BaseModel):
     item_id: str
 
+
 async def _ensure_inventory(db, user_id: str):
     inv = await db.user_inventory.find_one({"user_id": user_id})
     if inv:
@@ -42,7 +43,23 @@ async def _ensure_inventory(db, user_id: str):
     await db.user_inventory.insert_one(doc)
     return doc
 
-# ✅ TOKEN VERSION: GET /shop/inventory
+
+async def _pet_set(db, user_id: str, mood: str, reason: str):
+    now = datetime.utcnow()
+    try:
+        await db.pets.update_one(
+            {"user_id": user_id},
+            {"$set": {"mood": mood, "updated_at": now}},
+            upsert=True,
+        )
+        await db.pet_mood_logs.insert_one(
+            {"user_id": user_id, "mood": mood, "reason": reason, "ts": now}
+        )
+    except Exception:
+        # don't block purchase/use/equip
+        pass
+
+
 @router.get("/inventory", response_model=Envelope[Dict[str, Any]])
 async def get_inventory_token(
     db=Depends(get_db),
@@ -57,7 +74,6 @@ async def get_inventory_token(
     })
 
 
-# ✅ TOKEN VERSION: purchase/use/equip（推荐一起改，免得 422）
 @router.post("/purchase", response_model=Envelope[Dict[str, Any]])
 async def purchase(
     body: PurchaseIn,
@@ -66,6 +82,7 @@ async def purchase(
 ):
     await _ensure_inventory(db, user_id)
 
+    # coins stored in users._id (ObjectId)
     try:
         oid = ObjectId(user_id)
     except Exception:
@@ -87,27 +104,13 @@ async def purchase(
             {"user_id": user_id},
             {"$inc": {f"foods.{body.item_id}": 1}, "$set": {"updated_at": datetime.utcnow()}},
         )
+        await _pet_set(db, user_id, "happy", f"purchase_food:{body.item_id}")
     else:
         await db.user_inventory.update_one(
             {"user_id": user_id},
             {"$set": {f"decors.{body.item_id}": True, "updated_at": datetime.utcnow()}},
         )
-
-    # ✅ pet mood log (AFTER success)
-    try:
-        await db.pets.update_one(
-            {"user_id": user_id},
-            {"$set": {"mood": "happy", "updated_at": datetime.utcnow()}},
-            upsert=True,
-        )
-        await db.pet_mood_logs.insert_one({
-            "user_id": user_id,
-            "mood": "happy",
-            "reason": f"use_food:{body.item_id}",
-            "ts": datetime.utcnow(),
-        })
-    except Exception:
-        pass
+        await _pet_set(db, user_id, "happy", f"purchase_decor:{body.item_id}")
 
     inv = await db.user_inventory.find_one({"user_id": user_id})
     return ok({
@@ -118,6 +121,7 @@ async def purchase(
             "active_decor": (inv or {}).get("active_decor"),
         }
     })
+
 
 @router.post("/use-food", response_model=Envelope[Dict[str, Any]])
 async def use_food(
@@ -135,21 +139,7 @@ async def use_food(
         {"$inc": {f"foods.{body.item_id}": -1}, "$set": {"updated_at": datetime.utcnow()}},
     )
 
-    # ✅ pet mood log (AFTER success)
-    try:
-        await db.pets.update_one(
-            {"user_id": user_id},
-            {"$set": {"mood": "happy", "updated_at": datetime.utcnow()}},
-            upsert=True,
-        )
-        await db.pet_mood_logs.insert_one({
-            "user_id": user_id,
-            "mood": "happy",
-            "reason": f"use_food:{body.item_id}",
-            "ts": datetime.utcnow(),
-        })
-    except Exception:
-        pass
+    await _pet_set(db, user_id, "happy", f"use_food:{body.item_id}")
 
     inv2 = await db.user_inventory.find_one({"user_id": user_id})
     return ok({
@@ -159,6 +149,7 @@ async def use_food(
             "active_decor": (inv2 or {}).get("active_decor"),
         }
     })
+
 
 @router.post("/equip-decor", response_model=Envelope[Dict[str, Any]])
 async def equip_decor(
@@ -176,21 +167,7 @@ async def equip_decor(
         {"$set": {"active_decor": body.item_id, "updated_at": datetime.utcnow()}},
     )
 
-    # ✅ pet mood log (AFTER success)
-    try:
-        await db.pets.update_one(
-            {"user_id": user_id},
-            {"$set": {"mood": "happy", "updated_at": datetime.utcnow()}},
-            upsert=True,
-        )
-        await db.pet_mood_logs.insert_one({
-            "user_id": user_id,
-            "mood": "happy",
-            "reason": f"use_food:{body.item_id}",
-            "ts": datetime.utcnow(),
-        })
-    except Exception:
-        pass
+    await _pet_set(db, user_id, "happy", f"equip_decor:{body.item_id}")
 
     inv2 = await db.user_inventory.find_one({"user_id": user_id})
     return ok({
@@ -200,4 +177,3 @@ async def equip_decor(
             "active_decor": (inv2 or {}).get("active_decor"),
         }
     })
-

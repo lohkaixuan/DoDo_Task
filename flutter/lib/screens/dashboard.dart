@@ -17,7 +17,7 @@ class Dashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tc = Get.find<TaskController>();
     final pet = Get.find<PetController>();
-    final petMoodC = Get.find<PetMoodController>();
+    final petMood = Get.find<PetMoodController>();
 
     // ✅ 2. 改成 Scaffold 结构
     return Scaffold(
@@ -39,11 +39,18 @@ class Dashboard extends StatelessWidget {
         final all = tc.tasks;
         final now = DateTime.now();
 
-        final notStarted = all.where((t) => t.computeStatus(now) == TaskStatus.notStarted).length;
-        final inProgress = all.where((t) => t.computeStatus(now) == TaskStatus.inProgress).length;
-        final completed  = all.where((t) => t.status == TaskStatus.completed).length;
-        final late       = all.where((t) => t.computeStatus(now) == TaskStatus.late).length;
-        final total      = (notStarted + inProgress + completed + late).clamp(1, 1<<30);
+        final notStarted = all
+            .where((t) => t.computeStatus(now) == TaskStatus.notStarted)
+            .length;
+        final inProgress = all
+            .where((t) => t.computeStatus(now) == TaskStatus.inProgress)
+            .length;
+        final completed =
+            all.where((t) => t.status == TaskStatus.completed).length;
+        final late =
+            all.where((t) => t.computeStatus(now) == TaskStatus.late).length;
+        final total =
+            (notStarted + inProgress + completed + late).clamp(1, 1 << 30);
 
         double pct(int v) => v / total;
 
@@ -53,7 +60,7 @@ class Dashboard extends StatelessWidget {
           padding: padAll(context, h: 16, v: 16),
           children: [
             // Pet header
-            PetHeader(imageOverride: pet.currentSprite), 
+            PetHeader(imageOverride: pet.currentSprite),
 
             // Donut Card
             Card(
@@ -63,7 +70,8 @@ class Dashboard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Your Task Stats',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 220,
@@ -71,42 +79,69 @@ class Dashboard extends StatelessWidget {
                         painter: _DonutPainter([
                           (pct(notStarted), Colors.grey.shade400),
                           (pct(inProgress), Colors.blue),
-                          (pct(completed),  Colors.green),
-                          (pct(late),       Colors.red),
+                          (pct(completed), Colors.green),
+                          (pct(late), Colors.red),
                         ]),
                         child: const Center(
                           child: Text('Tasks',
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 16)),
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _legend(color: Colors.grey.shade400, label: 'Not started', v: notStarted),
-                    _legend(color: Colors.blue,           label: 'In progress', v: inProgress),
-                    _legend(color: Colors.green,          label: 'Completed',   v: completed),
-                    _legend(color: Colors.red,            label: 'Late',        v: late),
+                    _legend(
+                        color: Colors.grey.shade400,
+                        label: 'Not started',
+                        v: notStarted),
+                    _legend(
+                        color: Colors.blue,
+                        label: 'In progress',
+                        v: inProgress),
+                    _legend(
+                        color: Colors.green, label: 'Completed', v: completed),
+                    _legend(color: Colors.red, label: 'Late', v: late),
                   ],
                 ),
               ),
             ),
 
             // AI Insights
-            const SizedBox(height: 12,),
+            const SizedBox(
+              height: 12,
+            ),
             const InsightsCard(),
 
-            // ✅ Pet mood history block
-            Obx(() => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Pet mood: ${petMoodC.currentMood.value}",
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                ...petMoodC.logs.take(8).map((x) => Text(
-                  "${x.ts.toLocal().toString().substring(0, 16)}  •  ${x.mood}  (${x.reason})",
-                  style: const TextStyle(color: Color(0xFF666666)),
-                )),
-              ],
-            )),
+            // 在 ListView children 里（InsightsCard 后面）
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Obx(() {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Pet mood: ${petMood.currentMood.value}",
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 10),
+                      if (petMood.logs.isEmpty)
+                        const Text("No pet mood logs yet 🦈")
+                      else
+                        ...petMood.logs.take(8).map((x) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Text(
+                                "${x.ts.toLocal().toString().substring(0, 16)} • ${x.mood} (${x.reason})",
+                                style:
+                                    const TextStyle(color: Color(0xFF666666)),
+                              ),
+                            )),
+                    ],
+                  );
+                }),
+              ),
+            ),
 
             // Recommended
             const SizedBox(height: 12),
@@ -118,28 +153,33 @@ class Dashboard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Recommended next',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 6),
                       ...rec.map((t) => TaskListTile(task: t, compact: true)),
                     ],
                   ),
                 ),
               ),
-              
+
             // ✅ 4. 底部留白，防止被底部的 Floating Pet Head 挡住
-            const SizedBox(height: 100), 
+            const SizedBox(height: 100),
           ],
         );
       }),
     );
   }
 
-  Widget _legend({required Color color, required String label, required int v}) {
+  Widget _legend(
+      {required Color color, required String label, required int v}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
           Expanded(child: Text(label)),
           Text('$v'),
@@ -174,7 +214,8 @@ class _DonutPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeWidth = 24
         ..color = c;
-      canvas.drawArc(Rect.fromCircle(center: center, radius: r), start, sweep, false, p);
+      canvas.drawArc(
+          Rect.fromCircle(center: center, radius: r), start, sweep, false, p);
       start += sweep;
     }
   }
@@ -198,7 +239,8 @@ class InsightsCard extends StatelessWidget {
             return const ListTile(
               leading: CircularProgressIndicator(),
               title: Text('Analysis…'),
-              subtitle: Text('I am checking your tasks and generating insights.'),
+              subtitle:
+                  Text('I am checking your tasks and generating insights.'),
             );
           }
 
