@@ -56,6 +56,7 @@ async def get_inventory_token(
         "active_decor": inv.get("active_decor"),
     })
 
+
 # ✅ TOKEN VERSION: purchase/use/equip（推荐一起改，免得 422）
 @router.post("/purchase", response_model=Envelope[Dict[str, Any]])
 async def purchase(
@@ -92,6 +93,22 @@ async def purchase(
             {"$set": {f"decors.{body.item_id}": True, "updated_at": datetime.utcnow()}},
         )
 
+    # ✅ pet mood log (AFTER success)
+    try:
+        await db.pets.update_one(
+            {"user_id": user_id},
+            {"$set": {"mood": "happy", "updated_at": datetime.utcnow()}},
+            upsert=True,
+        )
+        await db.pet_mood_logs.insert_one({
+            "user_id": user_id,
+            "mood": "happy",
+            "reason": f"use_food:{body.item_id}",
+            "ts": datetime.utcnow(),
+        })
+    except Exception:
+        pass
+
     inv = await db.user_inventory.find_one({"user_id": user_id})
     return ok({
         "coins": new_coins,
@@ -118,6 +135,22 @@ async def use_food(
         {"$inc": {f"foods.{body.item_id}": -1}, "$set": {"updated_at": datetime.utcnow()}},
     )
 
+    # ✅ pet mood log (AFTER success)
+    try:
+        await db.pets.update_one(
+            {"user_id": user_id},
+            {"$set": {"mood": "happy", "updated_at": datetime.utcnow()}},
+            upsert=True,
+        )
+        await db.pet_mood_logs.insert_one({
+            "user_id": user_id,
+            "mood": "happy",
+            "reason": f"use_food:{body.item_id}",
+            "ts": datetime.utcnow(),
+        })
+    except Exception:
+        pass
+
     inv2 = await db.user_inventory.find_one({"user_id": user_id})
     return ok({
         "inventory": {
@@ -143,6 +176,22 @@ async def equip_decor(
         {"$set": {"active_decor": body.item_id, "updated_at": datetime.utcnow()}},
     )
 
+    # ✅ pet mood log (AFTER success)
+    try:
+        await db.pets.update_one(
+            {"user_id": user_id},
+            {"$set": {"mood": "happy", "updated_at": datetime.utcnow()}},
+            upsert=True,
+        )
+        await db.pet_mood_logs.insert_one({
+            "user_id": user_id,
+            "mood": "happy",
+            "reason": f"use_food:{body.item_id}",
+            "ts": datetime.utcnow(),
+        })
+    except Exception:
+        pass
+
     inv2 = await db.user_inventory.find_one({"user_id": user_id})
     return ok({
         "inventory": {
@@ -151,3 +200,4 @@ async def equip_decor(
             "active_decor": (inv2 or {}).get("active_decor"),
         }
     })
+

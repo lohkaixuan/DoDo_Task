@@ -26,21 +26,21 @@ class ShopCatalog {
       name: "Apple",
       price: 5,
       category: ShopCategory.food,
-      asset: "assets/shop/apple.png",
+      asset: "assets/shop/food/apple.png",
     ),
     ShopItem(
       id: "milk",
       name: "Milk",
       price: 7,
       category: ShopCategory.food,
-      asset: "assets/shop/milk.png",
+      asset: "assets/shop/food/milk.png",
     ),
     ShopItem(
       id: "bento",
       name: "Bento",
       price: 12,
       category: ShopCategory.food,
-      asset: "assets/shop/bento.png",
+      asset: "assets/shop/food/bento.png",
     ),
 
     // Decor
@@ -49,14 +49,14 @@ class ShopCatalog {
       name: "Lamp",
       price: 30,
       category: ShopCategory.decor,
-      asset: "assets/shop/lamp.png",
+      asset: "assets/shop/decor/lamp.png",
     ),
     ShopItem(
       id: "plant",
       name: "Plant",
       price: 25,
       category: ShopCategory.decor,
-      asset: "assets/shop/plant.png",
+      asset: "assets/shop/decor/plant.png",
     ),
   ];
 }

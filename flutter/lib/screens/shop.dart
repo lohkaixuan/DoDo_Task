@@ -69,7 +69,7 @@ class ShopPage extends StatelessWidget {
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
-      itemBuilder: (_, i) => _itemCard(items[i], c),
+      itemBuilder: (_, i) => Obx(() => _itemCard(items[i], c)),
     );
   }
 

@@ -46,7 +46,7 @@ class TaskToday extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('Today', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              child: Text('Today Task:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             ),
             if (items.isEmpty)
               const Padding(

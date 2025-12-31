@@ -1,7 +1,7 @@
 # app/routers/wellbeing.py
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any, List
 from datetime import datetime, date
 
 
@@ -111,3 +111,50 @@ async def risk(user_id: str, db=Depends(get_db)):
 async def recommend_due(task_id: str, user_id: str, db=Depends(get_db)):
     info = await recommend_new_due_date(db, user_id, task_id)
     return ok(info or {"message": "No chronic delay detected."}, message="Recommendation")
+
+# ---------------- PET mood (dashboard insights) ----------------
+PetMood = Literal["happy", "idle", "sad", "angry", "tired", "excited", "concern"]
+
+class PetMoodSetIn(BaseModel):
+    mood: PetMood
+    reason: str = Field(default="manual")
+    ts: Optional[datetime] = None
+
+async def _ensure_pet(db, user_id: str) -> Dict[str, Any]:
+    pet = await db.pets.find_one({"user_id": user_id})
+    if pet:
+        return pet
+    doc = {"user_id": user_id, "mood": "idle", "updated_at": datetime.utcnow()}
+    await db.pets.insert_one(doc)
+    return doc
+
+async def _log_pet_mood(db, user_id: str, mood: str, reason: str, ts: Optional[datetime] = None):
+    now = ts or datetime.utcnow()
+    await db.pets.update_one(
+        {"user_id": user_id},
+        {"$set": {"mood": mood, "updated_at": now}},
+        upsert=True,
+    )
+    await db.pet_mood_logs.insert_one({"user_id": user_id, "mood": mood, "reason": reason, "ts": now})
+
+@router.get("/pet", response_model=Envelope[Dict[str, Any]])
+async def get_pet_state(db=Depends(get_db), user_id: str = Depends(require_user_id)):
+    pet = await _ensure_pet(db, user_id)
+    return ok({"user_id": user_id, "mood": pet.get("mood", "idle"), "updated_at": pet.get("updated_at")})
+
+@router.post("/pet/mood", response_model=Envelope[Dict[str, Any]])
+async def set_pet_mood(body: PetMoodSetIn, db=Depends(get_db), user_id: str = Depends(require_user_id)):
+    await _log_pet_mood(db, user_id, body.mood, body.reason, body.ts)
+    return created({"updated": True, "mood": body.mood, "reason": body.reason}, message="Pet mood updated")
+
+@router.get("/pet/mood/history", response_model=Envelope[List[Dict[str, Any]]])
+async def get_pet_mood_history(
+    limit: int = 30,
+    db=Depends(get_db),
+    user_id: str = Depends(require_user_id),
+):
+    limit = max(1, min(limit, 200))
+    rows = await db.pet_mood_logs.find({"user_id": user_id}).sort("ts", -1).to_list(limit)
+    for r in rows:
+        r.pop("_id", None)
+    return ok(rows, message="Pet mood history")

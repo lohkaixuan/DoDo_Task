@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/insightsController.dart';
 import 'package:v3/controller/petController.dart';
+import 'package:v3/controller/petMoodController.dart';
 import 'package:v3/controller/taskController.dart';
 import 'package:v3/models/task.dart';
 import 'package:v3/widgets/coin_badge.dart';
@@ -16,6 +17,7 @@ class Dashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tc = Get.find<TaskController>();
     final pet = Get.find<PetController>();
+    final petMoodC = Get.find<PetMoodController>();
 
     // ✅ 2. 改成 Scaffold 结构
     return Scaffold(
@@ -91,6 +93,20 @@ class Dashboard extends StatelessWidget {
             // AI Insights
             const SizedBox(height: 12,),
             const InsightsCard(),
+
+            // ✅ Pet mood history block
+            Obx(() => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Pet mood: ${petMoodC.currentMood.value}",
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...petMoodC.logs.take(8).map((x) => Text(
+                  "${x.ts.toLocal().toString().substring(0, 16)}  •  ${x.mood}  (${x.reason})",
+                  style: const TextStyle(color: Color(0xFF666666)),
+                )),
+              ],
+            )),
 
             // Recommended
             const SizedBox(height: 12),

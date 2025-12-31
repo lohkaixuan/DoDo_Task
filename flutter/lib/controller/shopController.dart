@@ -1,14 +1,14 @@
-// lib/controller/shopController.dart
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 import '../api/dioclient.dart';
-import '../storage/authStorage.dart';
 import '../controller/walletController.dart';
 import '../models/shop_item.dart';
+import '../controller/petMoodController.dart'; // ✅ add
 
 class ShopController extends GetxController {
   final DioClient _dio = Get.find<DioClient>();
   final WalletController wallet = Get.find<WalletController>();
+  final PetMoodController petMoodC = Get.find<PetMoodController>(); // ✅ binding provides it
 
   final items = <ShopItem>[...ShopCatalog.items].obs;
 
@@ -17,11 +17,6 @@ class ShopController extends GetxController {
   final activeDecor = RxnString();
 
   final loading = false.obs;
-
-  Future<Options> _authOpt() async {
-    final token = await AuthStorage.readToken();
-    return Options(headers: {'Authorization': 'Bearer $token'});
-  }
 
   @override
   void onInit() {
@@ -34,20 +29,24 @@ class ShopController extends GetxController {
     await wallet.fetchBalance();
   }
 
-  void _applyInventory(Map<String, dynamic> inv) {
-    foodsOwned.value = Map<String, int>.from(inv['foods'] ?? {});
-    decorsOwned.value = Map<String, bool>.from(inv['decors'] ?? {});
+  void _applyInventory(dynamic invRaw) {
+    final inv = Map<String, dynamic>.from(invRaw as Map);
+
+    final foodsRaw = Map<String, dynamic>.from(inv['foods'] ?? {});
+    final decorsRaw = Map<String, dynamic>.from(inv['decors'] ?? {});
+
+    foodsOwned.value = foodsRaw.map((k, v) => MapEntry(k, (v as num).toInt()));
+    decorsOwned.value = decorsRaw.map((k, v) => MapEntry(k, v == true));
     activeDecor.value = inv['active_decor']?.toString();
+
     foodsOwned.refresh();
     decorsOwned.refresh();
   }
 
   Future<void> loadInventory() async {
-    final res = await _dio.dio.get(
-      '/shop/inventory', // ✅ token route
-      options: await _authOpt(),
-    );
-    final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+    final res = await _dio.dio.get('/shop/inventory');
+    final root = (res.data is Map) ? Map<String, dynamic>.from(res.data) : {};
+    final data = (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
     _applyInventory(data);
   }
 
@@ -59,20 +58,21 @@ class ShopController extends GetxController {
     if (loading.value) return;
     loading.value = true;
     try {
-      final res = await _dio.dio.post(
-        '/shop/purchase',
-        data: {
-          'item_id': it.id,
-          'item_type': it.category == ShopCategory.food ? 'food' : 'decor',
-          'price': it.price,
-          'name': it.name,
-        },
-        options: await _authOpt(),
-      );
+      final res = await _dio.dio.post('/shop/purchase', data: {
+        'item_id': it.id,
+        'item_type': it.category == ShopCategory.food ? 'food' : 'decor',
+        'price': it.price,
+        'name': it.name,
+      });
 
-      final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+      final root = (res.data is Map) ? Map<String, dynamic>.from(res.data) : {};
+      final data = (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
+
       if (data['coins'] != null) wallet.setCoins((data['coins'] as num).toInt());
       if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
+
+      // ✅ instant pet mood (purchase)
+      await petMoodC.setMood('excited', reason: 'purchase:${it.id}');
 
       Get.snackbar("Purchased ✅", "You bought ${it.name}!");
     } on DioException catch (e) {
@@ -86,14 +86,14 @@ class ShopController extends GetxController {
     if (loading.value) return;
     loading.value = true;
     try {
-      final res = await _dio.dio.post(
-        '/shop/use-food',
-        data: {'item_id': it.id},
-        options: await _authOpt(),
-      );
+      final res = await _dio.dio.post('/shop/use-food', data: {'item_id': it.id});
 
-      final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+      final root = (res.data is Map) ? Map<String, dynamic>.from(res.data) : {};
+      final data = (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
       if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
+
+      // ✅ instant pet mood (use food)
+      await petMoodC.setMood('happy', reason: 'use_food:${it.id}');
 
       Get.snackbar("Yum! 🍽️", "${it.name} used.");
     } on DioException catch (e) {
@@ -107,14 +107,14 @@ class ShopController extends GetxController {
     if (loading.value) return;
     loading.value = true;
     try {
-      final res = await _dio.dio.post(
-        '/shop/equip-decor',
-        data: {'item_id': it.id},
-        options: await _authOpt(),
-      );
+      final res = await _dio.dio.post('/shop/equip-decor', data: {'item_id': it.id});
 
-      final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+      final root = (res.data is Map) ? Map<String, dynamic>.from(res.data) : {};
+      final data = (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
       if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
+
+      // ✅ instant pet mood (equip decor)
+      await petMoodC.setMood('happy', reason: 'equip:${it.id}');
 
       Get.snackbar("Equipped ✨", "${it.name} equipped!");
     } on DioException catch (e) {
