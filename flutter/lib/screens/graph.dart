@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/graphController.dart';
 
@@ -152,13 +152,15 @@ class _LineChartPainter extends CustomPainter {
 
     if (pts.isEmpty) return;
 
-    final maxV = pts.map((e) => e.minutes).fold<int>(1, (a, b) => a > b ? a : b);
+    final maxV = pts.map((e) => e.minutes).fold<int>(0, (a, b) => a > b ? a : b);
+    final maxV = rawMax <= 0 ? 1 : rawMax;  
     final n = pts.length;
 
     Offset toXY(int i, int v) {
       final x = pad + (n == 1 ? 0 : (i / (n - 1)) * (w - pad * 2));
       final yNorm = v / maxV;
       final y = (h - pad) - yNorm * (h - pad * 2);
+      final y = pad + (1- (v / maxV)) * (h - pad * 2);
       return Offset(x, y);
     }
 
@@ -203,3 +205,4 @@ class _LineChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _LineChartPainter old) => old.pts != pts;
 }
+*/

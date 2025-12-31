@@ -10,7 +10,7 @@ class DailyFocusPoint {
   factory DailyFocusPoint.fromJson(Map<String, dynamic> j) {
     final dateStr = (j['date'] ?? '').toString(); // "YYYY-MM-DD"
     final day = DateTime.tryParse(dateStr) ?? DateTime.now();
-    final mins = (j['total_focus_minutes'] ?? 0);
+    final mins = j['total_focus_minutes'] ?? 0;
     return DailyFocusPoint(
       day: DateTime(day.year, day.month, day.day),
       minutes: (mins is num) ? mins.toInt() : 0,
@@ -44,7 +44,11 @@ class GraphController extends GetxController {
           .map((e) => DailyFocusPoint.fromJson(Map<String, dynamic>.from(e)))
           .toList();
 
-      points.assignAll(parsed);
+      // ✅ fill missing days with 0
+      points.assignAll(_fillMissingDays(parsed, days.value));
+    } catch (_) {
+      // ✅ even if API fails, show empty trend of 0s (UI still works)
+      points.assignAll(_fillMissingDays([], days.value));
     } finally {
       loading.value = false;
     }
@@ -54,4 +58,25 @@ class GraphController extends GetxController {
     days.value = v;
     fetchDaily();
   }
+
+  List<DailyFocusPoint> _fillMissingDays(List<DailyFocusPoint> input, int nDays) {
+    final map = <String, DailyFocusPoint>{};
+    for (final p in input) {
+      final key = _key(p.day);
+      map[key] = p;
+    }
+
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).subtract(Duration(days: nDays - 1));
+
+    final out = <DailyFocusPoint>[];
+    for (int i = 0; i < nDays; i++) {
+      final d = start.add(Duration(days: i));
+      final key = _key(d);
+      out.add(map[key] ?? DailyFocusPoint(day: d, minutes: 0));
+    }
+    return out;
+  }
+
+  String _key(DateTime d) => "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
 }

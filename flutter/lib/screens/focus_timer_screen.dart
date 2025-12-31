@@ -12,7 +12,6 @@ import 'package:v3/services/notification_service.dart';
 import 'package:v3/widgets/pad.dart';
 import 'package:v3/widgets/pet_header.dart';
 
-
 class FocusTimerScreen extends StatefulWidget {
   const FocusTimerScreen({super.key});
   @override
@@ -22,35 +21,33 @@ class FocusTimerScreen extends StatefulWidget {
 enum _Phase { focus, shortBreak, longBreak }
 
 class _FocusTimerScreenState extends State<FocusTimerScreen> {
-  // Controllers/services
   late final TaskController tc;
   late final PetController pet;
   late final NotificationService notifier;
 
-  // Route args
   String? taskId;
   String? subTaskId;
 
-  // Pomodoro prefs (default – may be overridden by task)
-  int pomoMin = 25;
+  // Task prefs
+  int pomoMin = 25;            // configured focus minutes (per task)
+  int focusSessionMin = 25;    // THIS SCREEN's focus duration (what we always return to)
   int shortBreakMin = 5;
   int longBreakEvery = 4;
 
   // Timer state
   _Phase phase = _Phase.focus;
-  int sessionCount = 0;
+  int sessionCount = 0; // completed focus sessions count
   Duration remaining = const Duration(minutes: 25);
   Timer? _ticker;
   bool running = false;
 
-  // Preventive cache for remaining focus time when skipping breaks
+  // Cache remaining focus time when user skips focus -> break and wants to come back
   Duration? _focusRemainCache;
 
   // Ongoing local notification state
   static const int _notifId = 777;
   int _lastNotifiedMinute = -1;
 
-  // Convenience getters
   Task? get _task =>
       taskId == null ? null : tc.tasks.firstWhereOrNull((t) => t.id == taskId);
   SubTask? get _subtask => subTaskId == null
@@ -65,23 +62,28 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     notifier = Get.find<NotificationService>();
 
     final args = Get.arguments as Map? ?? {};
-    this.taskId = args['taskId'] as String?;
-    subTaskId = args['subTaskId'] as String?; // ✅ 如果你未来也想跳到某个 subtask
+    taskId = args['taskId'] as String?;
+    subTaskId = args['subTaskId'] as String?;
 
     final task = _task;
     if (task != null) {
-      // per-task focus prefs
       pomoMin = task.focusPrefs.pomodoroMinutes;
       shortBreakMin = task.focusPrefs.shortBreakMinutes;
       longBreakEvery = task.focusPrefs.longBreakEvery;
 
-      // choose initial session length using remaining estimate if available
+      // decide this screen's focus session length
       final rem = task.remainingEstimatedMinutes;
-      final startMin = rem > 0 ? (rem >= 25 ? 25 : rem) : pomoMin;
-      remaining = Duration(minutes: startMin);
+      focusSessionMin = (rem > 0) ? (rem >= pomoMin ? pomoMin : rem) : pomoMin;
     } else {
-      remaining = Duration(minutes: pomoMin);
+      // no task => just use configured/default
+      focusSessionMin = pomoMin;
     }
+
+    phase = _Phase.focus;
+    remaining = Duration(minutes: focusSessionMin);
+
+    debugPrint("🔥 pomoMin=$pomoMin focusSessionMin=$focusSessionMin taskId=$taskId task=${_task?.title}");
+
   }
 
   @override
@@ -97,24 +99,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     if (running) return;
     setState(() => running = true);
 
-    // Mark the task active so dashboard donut updates immediately
-    if (taskId != null) {
-      // requires TaskController.markInProgress()
-      tc.markInProgress(taskId!);
-    }
+    if (taskId != null) tc.markInProgress(taskId!);
 
-    pet.onFocusStart( );
-    _notifyOngoing(); // show first sticky notification
+    pet.onFocusStart();
+    _notifyOngoing();
 
-    _ticker = Timer.periodic(const Duration(seconds: 1), (t) {
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
+
       if (remaining.inSeconds <= 1) {
         _ticker?.cancel();
         _onPhaseCompleted();
       } else {
         setState(() => remaining -= const Duration(seconds: 1));
         pet.onFocusAccumulate(1);
-        _notifyOngoing(); // refresh every ~minute
+        _notifyOngoing();
       }
     });
   }
@@ -130,24 +129,25 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     _ticker?.cancel();
     pet.onFocusPauseOrBreak();
     notifier.cancelId(_notifId);
+
     setState(() {
       running = false;
       phase = _Phase.focus;
-      remaining = Duration(minutes: pomoMin);
+      remaining = Duration(minutes: focusSessionMin); // ✅ not pomoMin
       _lastNotifiedMinute = -1;
       _focusRemainCache = null;
     });
   }
 
   void _nextPhase() {
-    final cycles = sessionCount;
+    // NOTE: sessionCount already increased when a focus completes.
     if (phase == _Phase.focus) {
-      final isLong = longBreakEvery > 0 && cycles % longBreakEvery == 0;
+      final isLong = longBreakEvery > 0 && (sessionCount % longBreakEvery == 0);
       phase = isLong ? _Phase.longBreak : _Phase.shortBreak;
       remaining = Duration(minutes: isLong ? (shortBreakMin * 2) : shortBreakMin);
     } else {
       phase = _Phase.focus;
-      remaining = Duration(minutes: pomoMin);
+      remaining = Duration(minutes: focusSessionMin); // ✅ always return to chosen focus
     }
     setState(() {});
   }
@@ -155,48 +155,51 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   void _onPhaseCompleted() {
     if (phase == _Phase.focus) {
       sessionCount += 1;
-      _logFocusMinutes(pomoMin);
+
+      // ✅ log only once with focusSessionMin
+      _logFocusMinutes(focusSessionMin);
+
       pet.addExp(5);
-      _snack('Nice!', 'Focus session done (${pomoMin}m).');
-      _focusRemainCache = null; // preventive next session estimate cache
+      _snack('Nice!', 'Focus session done (${focusSessionMin}m).');
+      _focusRemainCache = null;
     } else if (phase == _Phase.shortBreak) {
       _snack('Break done', 'Back to focus!');
     } else {
       _snack('Great!', 'Long break complete.');
     }
-    notifier.cancelId(_notifId); // stop sticky notification for this phase
-    _nextPhase();
+
+    notifier.cancelId(_notifId);
     running = false;
-    setState(() {});
+
+    _nextPhase();
   }
 
-  //skip button handler
+  // Skip button
   void _skip() {
-  _ticker?.cancel();
-  running = false;
-  notifier.cancelId(_notifId); // if not using notification can remove this line
+    _ticker?.cancel();
+    running = false;
+    notifier.cancelId(_notifId);
 
-  if (phase == _Phase.focus) {
-    // from Focus jump to Break：clear cache, go to next phase
-    _focusRemainCache = remaining;
+    if (phase == _Phase.focus) {
+      // Focus -> Break: cache current remaining focus time
+      _focusRemainCache = remaining;
 
-    final isLong = longBreakEvery > 0 && sessionCount % longBreakEvery == 0;
-    setState(() {
-      phase = isLong ? _Phase.longBreak : _Phase.shortBreak;
-      remaining = Duration(minutes: isLong ? (shortBreakMin * 2) : shortBreakMin);
-    });
-  } else {
-    // from Break back to Focus：recovery cache；if not use back default focus time
-    final r = _focusRemainCache;
-    setState(() {
-      phase = _Phase.focus;
-      remaining = (r != null && r.inSeconds > 2)
-          ? r
-          : Duration(minutes: pomoMin);
-    });
+      final isLong = longBreakEvery > 0 && (sessionCount % longBreakEvery == 0);
+      setState(() {
+        phase = isLong ? _Phase.longBreak : _Phase.shortBreak;
+        remaining = Duration(minutes: isLong ? (shortBreakMin * 2) : shortBreakMin);
+      });
+    } else {
+      // Break -> Focus: restore cached focus time, otherwise use focusSessionMin (NOT pomoMin)
+      final r = _focusRemainCache;
+      setState(() {
+        phase = _Phase.focus;
+        remaining = (r != null && r.inSeconds > 2)
+            ? r
+            : Duration(minutes: focusSessionMin); // ✅ not pomoMin
+      });
+    }
   }
-}
-
 
   // Persist focus minutes into the task/subtask
   void _logFocusMinutes(int minutes) {
@@ -226,7 +229,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     }
   }
 
-  // ---- Notification helper ----
   void _notifyOngoing() {
     final mins = remaining.inMinutes;
     if (mins != _lastNotifiedMinute) {
@@ -239,19 +241,19 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     }
   }
 
-  // ---- UI helpers ----
   String _title() {
     final task = _task;
     if (task == null) return 'Focus';
     if (_subtask == null) return task.title;
     return '${task.title} — ${_subtask!.title}';
-    }
+  }
 
   String _rangeInfo() {
     final task = _task;
     if (task == null) return '—';
     final fmtDay = DateFormat('MMM d');
     final fmtDT = DateFormat('MMM d, HH:mm');
+
     if (task.type == TaskType.singleDay && task.dueDateTime != null) {
       return 'Due ${fmtDT.format(task.dueDateTime!)}';
     }
@@ -262,7 +264,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   }
 
   void _snack(String t, String m) => Get.snackbar(
-        t, m,
+        t,
+        m,
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 2),
       );
@@ -288,7 +291,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
         child: ListView(
           padding: padAll(context, h: 16, v: 12),
           children: [
-            // Pet header on top
             const PetHeader(),
             const SizedBox(height: 12),
 
@@ -304,13 +306,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      info,
-                      style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
-                    ),
+                    Text(info, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
                     const SizedBox(height: 20),
+
                     _TimerDial(remaining: remaining),
                     const SizedBox(height: 20),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -340,7 +341,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   }
 }
 
-// Simple dial that shows MM:SS
 class _TimerDial extends StatelessWidget {
   final Duration remaining;
   const _TimerDial({required this.remaining});
@@ -348,7 +348,6 @@ class _TimerDial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String two(int v) => v.toString().padLeft(2, '0');
-    // show total minutes (can exceed 59) and seconds remainder
     final mm = two(remaining.inMinutes);
     final ss = two(remaining.inSeconds.remainder(60));
     return Container(

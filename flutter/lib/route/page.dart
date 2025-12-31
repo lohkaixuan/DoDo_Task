@@ -81,10 +81,10 @@ class AppPages {
       page: () => const PetChatScreen()
       ),
     //dashboard page function
-    GetPage(
+    /*GetPage(
       name: '/graph', 
       page: () => const GraphPage()
-    ),
+    ),*/
     GetPage(
       name: '/shop', 
       page: () => const ShopPage()
