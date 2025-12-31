@@ -1,36 +1,33 @@
 # app/routers/shop.py
 from __future__ import annotations
 from datetime import datetime
-from typing import Dict, Any, Literal
+from typing import Literal, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
 from app.db import get_db
-from app.utils.response_utils import ok, created
+from app.utils.response_utils import ok
 from app.schemas.response import Envelope
-from app.services.auth_service import require_user_id
+from app.services.auth_service import require_user_id  # ✅ 你 wellbeing 用的那个
 
 router = APIRouter(prefix="/shop", tags=["shop"])
 
 ItemType = Literal["food", "decor"]
 
-# ----------------------------
-# Inputs (TOKEN version: no user_id in body)
-# ----------------------------
 class PurchaseIn(BaseModel):
     item_id: str = Field(..., min_length=1)
     item_type: ItemType
     price: int = Field(..., ge=0)
     name: str = Field(..., min_length=1, max_length=60)
 
-class ItemOnlyIn(BaseModel):
-    item_id: str = Field(..., min_length=1)
+class UseFoodIn(BaseModel):
+    item_id: str
 
-# ----------------------------
-# Inventory helpers
-# ----------------------------
+class EquipDecorIn(BaseModel):
+    item_id: str
+
 async def _ensure_inventory(db, user_id: str):
     inv = await db.user_inventory.find_one({"user_id": user_id})
     if inv:
@@ -45,36 +42,21 @@ async def _ensure_inventory(db, user_id: str):
     await db.user_inventory.insert_one(doc)
     return doc
 
-def _to_json(doc: dict) -> dict:
-    doc = dict(doc)
-    if "_id" in doc:
-        doc["_id"] = str(doc["_id"])
-    if "updated_at" in doc and hasattr(doc["updated_at"], "isoformat"):
-        doc["updated_at"] = doc["updated_at"].isoformat()
-    return doc
-
-async def _get_inventory_payload(db, user_id: str) -> dict:
-    inv = await _ensure_inventory(db, user_id)
-    return {
-        "foods": inv.get("foods", {}) or {},
-        "decors": inv.get("decors", {}) or {},
-        "active_decor": inv.get("active_decor"),
-    }
-
-# ----------------------------
-# Read inventory (token)
-# ----------------------------
+# ✅ TOKEN VERSION: GET /shop/inventory
 @router.get("/inventory", response_model=Envelope[Dict[str, Any]])
 async def get_inventory_token(
     db=Depends(get_db),
     user_id: str = Depends(require_user_id),
 ):
-    inv = await _get_inventory_payload(db, user_id)
-    return ok({"inventory": inv}, message="Inventory retrieved")
+    inv = await _ensure_inventory(db, user_id)
+    return ok({
+        "user_id": user_id,
+        "foods": inv.get("foods", {}),
+        "decors": inv.get("decors", {}),
+        "active_decor": inv.get("active_decor"),
+    })
 
-# ----------------------------
-# Purchase (token)
-# ----------------------------
+# ✅ TOKEN VERSION: purchase/use/equip（推荐一起改，免得 422）
 @router.post("/purchase", response_model=Envelope[Dict[str, Any]])
 async def purchase(
     body: PurchaseIn,
@@ -83,11 +65,10 @@ async def purchase(
 ):
     await _ensure_inventory(db, user_id)
 
-    # users._id is ObjectId
     try:
         oid = ObjectId(user_id)
     except Exception:
-        raise HTTPException(422, "Invalid user id in token (must be ObjectId string)")
+        raise HTTPException(422, "Invalid user_id (must be ObjectId string)")
 
     user = await db.users.find_one({"_id": oid})
     if not user:
@@ -100,7 +81,6 @@ async def purchase(
     new_coins = coins - body.price
     await db.users.update_one({"_id": oid}, {"$set": {"coins": new_coins}})
 
-    # add to inventory
     if body.item_type == "food":
         await db.user_inventory.update_one(
             {"user_id": user_id},
@@ -112,25 +92,24 @@ async def purchase(
             {"$set": {f"decors.{body.item_id}": True, "updated_at": datetime.utcnow()}},
         )
 
-    inv = await _get_inventory_payload(db, user_id)
+    inv = await db.user_inventory.find_one({"user_id": user_id})
     return ok({
         "coins": new_coins,
-        "inventory": inv,
-        "item_id": body.item_id,
-        "type": body.item_type,
-    }, message="Purchased")
+        "inventory": {
+            "foods": (inv or {}).get("foods", {}),
+            "decors": (inv or {}).get("decors", {}),
+            "active_decor": (inv or {}).get("active_decor"),
+        }
+    })
 
-# ----------------------------
-# Use food (token)
-# ----------------------------
 @router.post("/use-food", response_model=Envelope[Dict[str, Any]])
 async def use_food(
-    body: ItemOnlyIn,
+    body: UseFoodIn,
     db=Depends(get_db),
     user_id: str = Depends(require_user_id),
 ):
-    inv_doc = await _ensure_inventory(db, user_id)
-    qty = int((inv_doc.get("foods") or {}).get(body.item_id, 0))
+    inv = await _ensure_inventory(db, user_id)
+    qty = int(inv.get("foods", {}).get(body.item_id, 0))
     if qty <= 0:
         raise HTTPException(400, "You don't own this food")
 
@@ -139,20 +118,23 @@ async def use_food(
         {"$inc": {f"foods.{body.item_id}": -1}, "$set": {"updated_at": datetime.utcnow()}},
     )
 
-    inv = await _get_inventory_payload(db, user_id)
-    return ok({"inventory": inv, "used": True, "item_id": body.item_id}, message="Food used")
+    inv2 = await db.user_inventory.find_one({"user_id": user_id})
+    return ok({
+        "inventory": {
+            "foods": (inv2 or {}).get("foods", {}),
+            "decors": (inv2 or {}).get("decors", {}),
+            "active_decor": (inv2 or {}).get("active_decor"),
+        }
+    })
 
-# ----------------------------
-# Equip decor (token)
-# ----------------------------
 @router.post("/equip-decor", response_model=Envelope[Dict[str, Any]])
 async def equip_decor(
-    body: ItemOnlyIn,
+    body: EquipDecorIn,
     db=Depends(get_db),
     user_id: str = Depends(require_user_id),
 ):
-    inv_doc = await _ensure_inventory(db, user_id)
-    owned = bool((inv_doc.get("decors") or {}).get(body.item_id, False))
+    inv = await _ensure_inventory(db, user_id)
+    owned = bool(inv.get("decors", {}).get(body.item_id, False))
     if not owned:
         raise HTTPException(400, "You don't own this decor")
 
@@ -161,5 +143,11 @@ async def equip_decor(
         {"$set": {"active_decor": body.item_id, "updated_at": datetime.utcnow()}},
     )
 
-    inv = await _get_inventory_payload(db, user_id)
-    return ok({"inventory": inv, "equipped": True, "active_decor": body.item_id}, message="Decor equipped")
+    inv2 = await db.user_inventory.find_one({"user_id": user_id})
+    return ok({
+        "inventory": {
+            "foods": (inv2 or {}).get("foods", {}),
+            "decors": (inv2 or {}).get("decors", {}),
+            "active_decor": (inv2 or {}).get("active_decor"),
+        }
+    })

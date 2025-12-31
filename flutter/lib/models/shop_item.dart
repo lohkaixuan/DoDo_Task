@@ -1,67 +1,62 @@
 // lib/models/shop_item.dart
+
 enum ShopCategory { food, decor }
 
 class ShopItem {
   final String id;
-  final ShopCategory category;
   final String name;
   final int price;
-  final int hunger; // only for food (optional)
+  final ShopCategory category;
   final String asset; // Image.asset path
 
   const ShopItem({
     required this.id,
-    required this.category,
     required this.name,
     required this.price,
+    required this.category,
     required this.asset,
-    this.hunger = 0,
   });
+}
 
-  // For local items (recommended)
-  static List<ShopItem> defaults() => const [
-        // Food
-        ShopItem(
-          id: "apple",
-          category: ShopCategory.food,
-          name: "Apple",
-          price: 5,
-          hunger: 8,
-          asset: "assets/shop/food/apple.png",
-        ),
-        ShopItem(
-          id: "milk",
-          category: ShopCategory.food,
-          name: "Milk",
-          price: 7,
-          hunger: 10,
-          asset: "assets/shop/food/milk.png",
-        ),
-        ShopItem(
-          id: "bento",
-          category: ShopCategory.food,
-          name: "Bento",
-          price: 12,
-          hunger: 18,
-          asset: "assets/shop/food/bento.png",
-        ),
+class ShopCatalog {
+  static const items = <ShopItem>[
+    // Food
+    ShopItem(
+      id: "apple",
+      name: "Apple",
+      price: 5,
+      category: ShopCategory.food,
+      asset: "assets/shop/apple.png",
+    ),
+    ShopItem(
+      id: "milk",
+      name: "Milk",
+      price: 7,
+      category: ShopCategory.food,
+      asset: "assets/shop/milk.png",
+    ),
+    ShopItem(
+      id: "bento",
+      name: "Bento",
+      price: 12,
+      category: ShopCategory.food,
+      asset: "assets/shop/bento.png",
+    ),
 
-        // Decor
-        ShopItem(
-          id: "lamp",
-          category: ShopCategory.decor,
-          name: "Lamp",
-          price: 30,
-          asset: "assets/shop/decor/lamp.png",
-        ),
-        ShopItem(
-          id: "plant",
-          category: ShopCategory.decor,
-          name: "Plant",
-          price: 25,
-          asset: "assets/shop/decor/plant.png",
-        ),
-      ];
-
-  String get itemTypeString => category == ShopCategory.food ? "food" : "decor";
+    // Decor
+    ShopItem(
+      id: "lamp",
+      name: "Lamp",
+      price: 30,
+      category: ShopCategory.decor,
+      asset: "assets/shop/lamp.png",
+    ),
+    ShopItem(
+      id: "plant",
+      name: "Plant",
+      price: 25,
+      category: ShopCategory.decor,
+      asset: "assets/shop/plant.png",
+    ),
+  ];
 }

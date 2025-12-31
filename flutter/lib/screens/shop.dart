@@ -19,13 +19,12 @@ class ShopPage extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: ()async => await c.refreshAll(),
+            onPressed: c.refreshAll,
             icon: const Icon(Icons.refresh),
           )
         ],
       ),
       body: Obx(() {
-        c.refreshTick.value; // react to refreshes
         final foods = c.items.where((x) => x.category == ShopCategory.food).toList();
         final decors = c.items.where((x) => x.category == ShopCategory.decor).toList();
 
@@ -35,9 +34,11 @@ class ShopPage extends StatelessWidget {
             _sectionTitle("Food 🍎"),
             _grid(foods, c),
             const SizedBox(height: 18),
+
             _sectionTitle("Decor ✨"),
             _grid(decors, c),
             const SizedBox(height: 12),
+
             if (c.activeDecor.value != null)
               Text(
                 "Active decor: ${c.activeDecor.value}",
@@ -51,7 +52,10 @@ class ShopPage extends StatelessWidget {
 
   Widget _sectionTitle(String t) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        child: Text(
+          t,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
       );
 
   Widget _grid(List<ShopItem> items, ShopController c) {
@@ -84,8 +88,10 @@ class ShopPage extends StatelessWidget {
             Text(it.name, style: const TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Text("Price: ${it.price} 🪙"),
+
             if (it.category == ShopCategory.food)
               Text("Owned: ${c.qty(it)}", style: const TextStyle(color: Colors.black54)),
+
             const SizedBox(height: 10),
 
             // FOOD
@@ -101,14 +107,16 @@ class ShopPage extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: (c.loading.value || c.qty(it) <= 0) ? null : () => c.useFood(it),
+                      onPressed: (c.loading.value || c.qty(it) <= 0)
+                          ? null
+                          : () => c.useFood(it),
                       child: const Text("Use"),
                     ),
                   ),
                 ],
               ),
             ] else ...[
-              // DECOR (two rows)
+              // DECOR
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -120,7 +128,9 @@ class ShopPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: (c.loading.value || !ownedDecor || isActive) ? null : () => c.equipDecor(it),
+                  onPressed: (c.loading.value || !ownedDecor || isActive)
+                      ? null
+                      : () => c.equipDecor(it),
                   child: Text(isActive ? "Equipped" : "Equip"),
                 ),
               ),

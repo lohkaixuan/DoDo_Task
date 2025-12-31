@@ -10,7 +10,7 @@ class ShopController extends GetxController {
   final DioClient _dio = Get.find<DioClient>();
   final WalletController wallet = Get.find<WalletController>();
 
-  final items = <ShopItem>[].obs;
+  final items = <ShopItem>[...ShopCatalog.items].obs;
 
   final foodsOwned = <String, int>{}.obs;
   final decorsOwned = <String, bool>{}.obs;
@@ -26,72 +26,53 @@ class ShopController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadAll();
+    refreshAll();
   }
 
-  Future<void> loadAll() async {
-    await loadItems();
-    await loadInventoryToken();
+  Future<void> refreshAll() async {
+    await loadInventory();
     await wallet.fetchBalance();
   }
 
-  // If you don't have /shop/items in backend, keep your local items list.
-  Future<void> loadItems() async {
-    // Example: keep local list (recommended if no backend items endpoint)
-    // items.assignAll(ShopItem.seed());
-
-    // OR if you have backend endpoint:
-    // final res = await _dio.dio.get('/shop/items');
-    // final list = (res.data['data'] as List).cast<Map<String, dynamic>>();
-    // items.assignAll(list.map(ShopItem.fromJson));
-  }
-
-  Future<void> loadInventoryToken() async {
-    final res = await _dio.dio.get('/shop/inventory', options: await _authOpt());
-    final data = (res.data['data'] as Map).cast<String, dynamic>();
-    final inv = (data['inventory'] as Map?)?.cast<String, dynamic>() ?? {};
-
+  void _applyInventory(Map<String, dynamic> inv) {
     foodsOwned.value = Map<String, int>.from(inv['foods'] ?? {});
     decorsOwned.value = Map<String, bool>.from(inv['decors'] ?? {});
     activeDecor.value = inv['active_decor']?.toString();
+    foodsOwned.refresh();
+    decorsOwned.refresh();
   }
 
-  void _applyInventoryFromResp(Map<String, dynamic> data) {
-    final inv = (data['inventory'] as Map?)?.cast<String, dynamic>();
-    if (inv == null) return;
-
-    foodsOwned.value = Map<String, int>.from(inv['foods'] ?? {});
-    decorsOwned.value = Map<String, bool>.from(inv['decors'] ?? {});
-    activeDecor.value = inv['active_decor']?.toString();
+  Future<void> loadInventory() async {
+    final res = await _dio.dio.get(
+      '/shop/inventory', // ✅ token route
+      options: await _authOpt(),
+    );
+    final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+    _applyInventory(data);
   }
 
   int qty(ShopItem it) => foodsOwned[it.id] ?? 0;
-  bool isOwnedDecor(ShopItem it) => (decorsOwned[it.id] ?? false);
+  bool isOwnedDecor(ShopItem it) => decorsOwned[it.id] ?? false;
   bool isActiveDecor(ShopItem it) => activeDecor.value == it.id;
 
   Future<void> purchase(ShopItem it) async {
     if (loading.value) return;
     loading.value = true;
-
     try {
       final res = await _dio.dio.post(
         '/shop/purchase',
         data: {
           'item_id': it.id,
-          'item_type': it.category.name, // food/decor
+          'item_type': it.category == ShopCategory.food ? 'food' : 'decor',
           'price': it.price,
           'name': it.name,
         },
         options: await _authOpt(),
       );
 
-      final data = (res.data['data'] as Map).cast<String, dynamic>();
-
-      if (data['coins'] != null) {
-        wallet.setCoins((data['coins'] as num).toInt());
-      }
-
-      _applyInventoryFromResp(data); // ✅ instant UI update
+      final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+      if (data['coins'] != null) wallet.setCoins((data['coins'] as num).toInt());
+      if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
 
       Get.snackbar("Purchased ✅", "You bought ${it.name}!");
     } on DioException catch (e) {
@@ -104,7 +85,6 @@ class ShopController extends GetxController {
   Future<void> useFood(ShopItem it) async {
     if (loading.value) return;
     loading.value = true;
-
     try {
       final res = await _dio.dio.post(
         '/shop/use-food',
@@ -112,8 +92,8 @@ class ShopController extends GetxController {
         options: await _authOpt(),
       );
 
-      final data = (res.data['data'] as Map).cast<String, dynamic>();
-      _applyInventoryFromResp(data); // ✅ instant UI update
+      final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+      if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
 
       Get.snackbar("Yum! 🍽️", "${it.name} used.");
     } on DioException catch (e) {
@@ -126,7 +106,6 @@ class ShopController extends GetxController {
   Future<void> equipDecor(ShopItem it) async {
     if (loading.value) return;
     loading.value = true;
-
     try {
       final res = await _dio.dio.post(
         '/shop/equip-decor',
@@ -134,8 +113,8 @@ class ShopController extends GetxController {
         options: await _authOpt(),
       );
 
-      final data = (res.data['data'] as Map).cast<String, dynamic>();
-      _applyInventoryFromResp(data); // ✅ instant UI update
+      final data = (res.data is Map) ? (res.data['data'] as Map? ?? {}) : <String, dynamic>{};
+      if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
 
       Get.snackbar("Equipped ✨", "${it.name} equipped!");
     } on DioException catch (e) {
@@ -144,6 +123,4 @@ class ShopController extends GetxController {
       loading.value = false;
     }
   }
-
-  Future<void> refreshAll() async => loadAll();
 }
