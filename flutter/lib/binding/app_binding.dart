@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:v3/api/dioclient.dart';
 import 'package:v3/controller/authController.dart';
+import 'package:v3/controller/graphController.dart';
 import 'package:v3/controller/insightsController.dart';
 import 'package:v3/controller/moodController.dart'; 
 import 'package:v3/controller/petController.dart';
@@ -28,8 +29,10 @@ class AppBinding extends Bindings {
     Get.put<SettingController>(SettingController(), permanent: true);
     Get.put<PetController>(PetController(), permanent: true);
     Get.put<AuthController>(AuthController(), permanent: true);
-    Get.put(PetMoodController(), permanent: true); // ✅ HERE
     Get.put<ShopController>(ShopController(), permanent: true);
+
+    Get.lazyPut<PetMoodController>(() => PetMoodController(), fenix: true);
+    Get.lazyPut<GraphController>(() => GraphController(), fenix:true);
 
     Get.lazyPut<TaskController>(
       () => TaskController(notifier, Get.find<PetController>()),

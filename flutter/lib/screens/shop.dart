@@ -25,6 +25,9 @@ class ShopPage extends StatelessWidget {
         ],
       ),
       body: Obx(() {
+        if (c.inventoryLoading.value && !c.inventoryReady.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
         final foods = c.items.where((x) => x.category == ShopCategory.food).toList();
         final decors = c.items.where((x) => x.category == ShopCategory.decor).toList();
 

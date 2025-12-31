@@ -17,7 +17,9 @@ class Dashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tc = Get.find<TaskController>();
     final pet = Get.find<PetController>();
-    final petMood = Get.find<PetMoodController>();
+    final petMood = Get.isRegistered<PetMoodController>()
+    ? Get.find<PetMoodController>()
+    : Get.put(PetMoodController());
 
     // ✅ 2. 改成 Scaffold 结构
     return Scaffold(
@@ -269,11 +271,10 @@ class InsightsCard extends StatelessWidget {
                     ),
                     OutlinedButton.icon(
                       onPressed: () {
-                        Get.snackbar('Metrics', 'Next version can show charts.',
-                            snackPosition: SnackPosition.BOTTOM);
+                        Get.toNamed('/graph');
                       },
                       icon: const Icon(Icons.bar_chart),
-                      label: const Text('Show graph (Next Ver)'),
+                      label: const Text('Show graph'),
                     ),
                   ],
                 ),

@@ -1,3 +1,4 @@
+// lib/controller/petMoodController.dart
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 import '../api/dioclient.dart';
@@ -36,20 +37,37 @@ class PetMoodController extends GetxController {
   }
 
   Future<void> fetchPetState() async {
-    final res = await _dio.dio.get('/wellbeing/pet');
-    final root = Map<String, dynamic>.from(res.data as Map);
-    final data = Map<String, dynamic>.from(root['data'] as Map? ?? {});
-    currentMood.value = (data['mood'] ?? 'idle').toString();
+    try {
+      final res = await _dio.dio.get('/wellbeing/pet');
+      final root = Map<String, dynamic>.from(res.data as Map);
+      final data = Map<String, dynamic>.from(root['data'] as Map? ?? {});
+      currentMood.value = (data['mood'] ?? 'idle').toString();
+    } catch (_) {
+      // keep old mood, don't crash UI
+    }
   }
 
   Future<void> fetchHistory() async {
-    final res = await _dio.dio.get('/wellbeing/pet/mood/history?limit=30');
-    final root = Map<String, dynamic>.from(res.data as Map);
-    final list = (root['data'] as List? ?? []).cast<dynamic>();
-    logs.assignAll(list.map((e) => PetMoodLog.fromJson(Map<String, dynamic>.from(e))));
+    try {
+      final res = await _dio.dio.get('/wellbeing/pet/mood/history?limit=30');
+      final root = Map<String, dynamic>.from(res.data as Map);
+      final list = (root['data'] as List? ?? []).cast<dynamic>();
+      final parsed = list
+          .map((e) => PetMoodLog.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+
+      logs.assignAll(parsed);
+
+      // ✅ tiny enhancement: if there is history, reflect latest mood instantly
+      if (parsed.isNotEmpty) {
+        currentMood.value = parsed.first.mood;
+      }
+    } catch (_) {
+      // keep old logs, don't crash UI
+    }
   }
 
-  /// call this after shop action success for instant UI update
+  /// Optional manual override (keep it, useful for admin/debug)
   Future<void> setMood(String mood, {required String reason}) async {
     if (loading.value) return;
     loading.value = true;
@@ -58,7 +76,7 @@ class PetMoodController extends GetxController {
         'mood': mood,
         'reason': reason,
       });
-      await refreshAll(); // ✅ instant refresh
+      await refreshAll();
     } finally {
       loading.value = false;
     }

@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, Dict, Any, List
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from app.db import get_db
 from app.schemas.response import Envelope
@@ -176,3 +176,25 @@ async def risk(user_id: str, db=Depends(get_db)):
 async def recommend_due(task_id: str, user_id: str, db=Depends(get_db)):
     info = await recommend_new_due_date(db, user_id, task_id)
     return ok(info or {"message": "No chronic delay detected."}, message="Recommendation")
+
+# NEW: daily usage stats (token)
+@router.get("/stats/daily", response_model=Envelope[List[Dict[str, Any]]])
+async def get_usage_stats_daily(
+    days: int = Query(14, ge=1, le=120),
+    db=Depends(get_db),
+    user_id: str = Depends(require_user_id),
+):
+    # return last N days
+    # collection: usage_stats_daily
+    # fields expected: user_id, date (YYYY-MM-DD), total_focus_minutes, tasks_completed, etc.
+
+    cursor = (
+        db.usage_stats_daily
+        .find({"user_id": user_id})
+        .sort("date", -1)
+        .limit(days)
+    )
+
+    rows = [_to_json(r) async for r in cursor]
+    rows.reverse()  # make it ascending for chart left->right
+    return ok(rows, message="Daily usage stats")
