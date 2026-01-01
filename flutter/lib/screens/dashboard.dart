@@ -17,7 +17,7 @@ class Dashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tc = Get.find<TaskController>();
     final pet = Get.find<PetController>();
-    final petMood = Get.isRegistered<PetMoodController>()
+    final petMood = Get.find()<PetMoodController>()
     ? Get.find<PetMoodController>()
     : Get.put(PetMoodController());
 
@@ -62,7 +62,7 @@ class Dashboard extends StatelessWidget {
           padding: padAll(context, h: 16, v: 16),
           children: [
             // Pet header
-            PetHeader(imageOverride: pet.currentSprite),
+            const PetHeader(),
 
             // Donut Card
             Card(

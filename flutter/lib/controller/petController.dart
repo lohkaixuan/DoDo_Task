@@ -1,3 +1,4 @@
+// lib/controller/petController.dart
 import 'dart:async';
 import 'package:get/get.dart';
 
@@ -9,6 +10,7 @@ class PetController extends GetxController {
   final emotion = 40.obs; // 0..100 mood score
   final exp = 0.obs;
   final level = 1.obs;
+  int _fatigueSeconds = 0;
 
   // --- persistent mood + temporary event ---
   final mood = PetMood.idle.obs;
@@ -55,6 +57,7 @@ class PetController extends GetxController {
       final diff = current - 60;
       final newVal = (current - diff * 0.7).round();
       emotion.value = newVal.clamp(0, 100);
+
       fatigueMinutes.value = 0;
       _lastEmotionDay = today;
       _recalcMoodFromScore();
@@ -62,14 +65,10 @@ class PetController extends GetxController {
   }
 
   // ---------- core helpers ----------
-  void _bumpEmotion(int n) {
-    emotion.value = (emotion.value + n).clamp(0, 100);
-    _recalcMoodFromScore();
-  }
-
-  void _dropEmotion(int n) {
-    emotion.value = (emotion.value - n).clamp(0, 100);
-    _recalcMoodFromScore();
+  void addMood(int delta) {
+    tickDailyRefresh(); // 可选：每天自动回归 60
+    emotion.value = (emotion.value + delta).clamp(0, 100);
+    _recalcMoodFromScore(); // ✅ 关键：让 idle/tired/sad 立即刷新
   }
 
   void _recalcMoodFromScore() {
@@ -93,67 +92,91 @@ class PetController extends GetxController {
   }
 
   // =========================================================
-  // ✅ Compatibility methods (keep your existing calls working)
+  // ✅ Public API (TaskController will call these)
   // =========================================================
 
-  void addExp(int points) {
-    exp.value += points;
-    _bumpEmotion(2);
-    while (exp.value >= level.value * 100) {
-      exp.value -= level.value * 100;
-      level.value += 1;
-      _bumpEmotion(5);
-      // small celebration on level up
-      playEvent(PetEvent.dance, duration: const Duration(seconds: 2));
-    }
-  }
+  /// Task started (optional call)
+  void onTaskStarted() => addMood(1);
 
-  // Focus timer calls these:
-  void onFocusStart([int minutesPlanned = 25]) {
-    mood.value = PetMood.focus;
-  }
+  /// Task delayed/late => mood down
+  void onTaskLate() => addMood(-8);
 
+  /// Task completed => mood up (Dashboard will update instantly)
+  void onTaskCompleted() => addMood(8);
 
-  void onFocusAccumulate(int seconds) {
-    fatigueMinutes.value += (seconds / 60).floor();
-    if (fatigueMinutes.value >= 120) {
-      mood.value = PetMood.tired;
-      _dropEmotion(1);
-    }
-  }
+  
 
-  void onFocusPauseOrBreak() {
-    fatigueMinutes.value = 0;
-    // If paused, go back to idle (or score-based mood)
-    mood.value = PetMood.idle;
-    _recalcMoodFromScore();
-  }
-
-  // Task triggers (你完成加分 / 拖延扣分)
-  void onTaskStarted() => _bumpEmotion(1);
-
-  void onTaskLate() => _dropEmotion(4);
-  void onTaskDelayed() => onTaskLate();
-
-  void onTaskCompleted({required bool early, required bool onTime, required bool late, bool allDailyDone = false}) {
+  // =========================================================
+  // ✅ Optional: detailed completion logic (if you want later)
+  // (Not used by TaskController unless you call it explicitly)
+  // =========================================================
+  void onTaskCompletedDetailed({
+    required bool early,
+    required bool onTime,
+    required bool late,
+    bool allDailyDone = false,
+  }) {
     if (early) {
-      _bumpEmotion(6);
-      addExp(20);
+      addMood(6);
+      //addExp(20);
     } else if (onTime) {
-      _bumpEmotion(4);
-      addExp(15);
+      addMood(4);
+      //addExp(15);
     } else if (late) {
-      _dropEmotion(6);
-      addExp(8);
+      addMood(-6);
+      //addExp(8);
     }
+
     if (allDailyDone) {
       playEvent(PetEvent.dance, duration: const Duration(seconds: 4));
     }
   }
 
+  // =========================================================
+  // ✅ EXP + Level system
+  // =========================================================
+  void addExp(int points) {
+    exp.value += points;
+    addMood(2);
+
+    while (exp.value >= level.value * 100) {
+      exp.value -= level.value * 100;
+      level.value += 1;
+      addMood(5);
+      playEvent(PetEvent.dance, duration: const Duration(seconds: 2));
+    }
+  }
+
+  // =========================================================
+  // ✅ Focus timer calls these:
+  // =========================================================
+  void onFocusStart([int minutesPlanned = 25]) {
+    mood.value = PetMood.focus;
+  }
+
+  void onFocusAccumulate(int seconds) {
+    _fatigueSeconds += seconds;
+    fatigueMinutes.value = (_fatigueSeconds / 60).floor();
+
+    if (fatigueMinutes.value >= 120) {
+      mood.value = PetMood.tired;
+      addMood(-1);
+    }
+  }
+
+  void onFocusPauseOrBreak() {
+    _fatigueSeconds = 0;
+    fatigueMinutes.value = 0;
+    mood.value = PetMood.idle;
+    _recalcMoodFromScore();
+  }
+
   // Extra events
   void onRestStart() => mood.value = PetMood.rest;
-  void onRestEnd() { mood.value = PetMood.idle; _recalcMoodFromScore(); }
+  void onRestEnd() {
+    mood.value = PetMood.idle;
+    _recalcMoodFromScore();
+  }
 
   void onShopOpen() => playEvent(PetEvent.eat, duration: const Duration(seconds: 3));
   void onDrinkReminder() => playEvent(PetEvent.drink, duration: const Duration(seconds: 2));

@@ -4,12 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/petController.dart';
 
-/// Header with a cute pet + emotion bar (0..100).
-/// - If [imageOverride] provided, uses that sprite; else picks by mood.
-/// - [statusOverride] can replace the status line.
 class PetHeader extends StatefulWidget {
   const PetHeader({super.key, this.imageOverride, this.statusOverride});
-
   final String? imageOverride;
   final String? statusOverride;
 
@@ -24,12 +20,6 @@ class _PetHeaderState extends State<PetHeader> {
   Offset _pos = const Offset(16, 40);
 
   PetController? _pet;
-String _spriteFromEmotion(int emotion) {
-  // you can tweak thresholds and file names
-  if (emotion >= 75) return 'assets/happy.gif';
-  if (emotion >= 40) return 'assets/sad.png';
-  return 'assets/sad.png';
-}
 
   @override
   void initState() {
@@ -61,11 +51,13 @@ String _spriteFromEmotion(int emotion) {
       final emo = _pet?.emotion.value ?? 60;
       final isSad = emo < 25;
       final isHappy = emo >= 75;
+
       final bank = isSad
           ? const ["Tiny step? 💪", "We’ll start small.", "Deep breath. You got this."]
           : (isHappy
               ? const ["Nice streak! 🔥", "Proud of you 🎉", "Momentum GO! 🚀"]
               : const ["Let’s do one task!", "Hydration check 💧", "Stretch time? 🧘"]);
+
       _showBubble(bank[_rng.nextInt(bank.length)]);
     }
   }
@@ -80,22 +72,24 @@ String _spriteFromEmotion(int emotion) {
 
   @override
   Widget build(BuildContext context) {
-    if (_pet == null) {
-      return _buildContent(energy: 60);
-    }
-    return Obx(() => _buildContent(energy: _pet!.emotion.value));
+    if (_pet == null) return _buildContent(energy: 60, sprite: 'assets/idle.png');
+
+    return Obx(() {
+      final energy = _pet!.emotion.value;
+      // ✅ EVENT-FIRST: sprite comes from controller (event > mood)
+      final sprite = widget.imageOverride ?? _pet!.currentSprite;
+      return _buildContent(energy: energy, sprite: sprite);
+    });
   }
 
-  Widget _buildContent({required int energy}) {
+  Widget _buildContent({required int energy, required String sprite}) {
     final isSad = energy < 25;
     final isHappy = energy >= 75;
 
-    // Pick sprite: prefer override else mood-based
-    final petImg = widget.imageOverride ??
-        (isSad ? 'assets/sad.png' : (isHappy ? 'assets/eat.gif' : 'assets/move.gif'));
-
     final statusText = widget.statusOverride ??
-        (isSad ? "Feeling low… let's start tiny 💙" : (isHappy ? 'Yay! Nice job 🎉' : 'Let’s knock out one task 💪'));
+        (isSad
+            ? "Feeling low… let's start tiny 💙"
+            : (isHappy ? 'Yay! Nice job 🎉' : 'Let’s knock out one task 💪'));
 
     return SizedBox(
       height: 220,
@@ -110,7 +104,6 @@ String _spriteFromEmotion(int emotion) {
 
         return Stack(
           children: [
-            // background
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -123,7 +116,6 @@ String _spriteFromEmotion(int emotion) {
               ),
             ),
 
-            // Emotion + status
             Positioned(
               left: 16,
               right: 16,
@@ -143,7 +135,6 @@ String _spriteFromEmotion(int emotion) {
               ),
             ),
 
-            // Speech bubble
             if (_bubble != null)
               Positioned(
                 left: (_pos.dx + 128 - 12).clamp(8, box.maxWidth - 208),
@@ -164,7 +155,6 @@ String _spriteFromEmotion(int emotion) {
                 ),
               ),
 
-            // Draggable pet
             Positioned(
               left: _pos.dx,
               top: _pos.dy,
@@ -175,7 +165,7 @@ String _spriteFromEmotion(int emotion) {
                   duration: const Duration(milliseconds: 220),
                   scale: isHappy ? 1.08 : 1.0,
                   curve: Curves.easeOut,
-                  child: Image.asset(petImg, width: 128, height: 128),
+                  child: Image.asset(sprite, width: 128, height: 128),
                 ),
               ),
             ),

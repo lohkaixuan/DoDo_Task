@@ -111,7 +111,7 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
               TextField(
                 controller: _title,
                 decoration: const InputDecoration(
-                    labelText: 'Title', border: OutlineInputBorder()),
+                    labelText: 'Title *', border: OutlineInputBorder()),
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 12),
@@ -148,7 +148,7 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
                 Expanded(
                   child: DropdownButtonFormField<PriorityLevel>(
                     value: _priority,
-                    decoration: const InputDecoration(labelText: 'Priority'),
+                    decoration: const InputDecoration(labelText: 'Priority *'),
                     items: const [
                       DropdownMenuItem(
                           value: PriorityLevel.urgent, child: Text('Urgent')),
@@ -223,7 +223,7 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
     return Row(children: [
       Expanded(
         child: ListTile(
-          title: const Text('Due date'),
+          title: const Text('Due date *'),
           subtitle: Text(_dueDate == null ? '—' : fmt.format(_dueDate!)),
           trailing: const Icon(Icons.event),
           onTap: () async {
@@ -240,7 +240,7 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
       ),
       Expanded(
         child: ListTile(
-          title: const Text('Due time'),
+          title: const Text('Due time *'),
           subtitle: Text(_dueTime == null ? '—' : _dueTime!.format(context)),
           trailing: const Icon(Icons.schedule),
           onTap: () async {
@@ -260,7 +260,7 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
     return Row(children: [
       Expanded(
         child: ListTile(
-          title: const Text('Start date'),
+          title: const Text('Start date *'),
           subtitle: Text(_startDate == null ? '—' : fmt.format(_startDate!)),
           trailing: const Icon(Icons.event_available),
           onTap: () async {
@@ -277,7 +277,7 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
       ),
       Expanded(
         child: ListTile(
-          title: const Text('Due date'),
+          title: const Text('Due date *'),
           subtitle: Text(_endDate == null ? '—' : fmt.format(_endDate!)),
           trailing: const Icon(Icons.event_note),
           onTap: () async {
@@ -329,14 +329,25 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
 
   void _save() {
     final title = _title.text.trim();
-    if (title.isEmpty) {
-      Get.snackbar('Missing title', 'Please enter a task title');
-      return;
-    }
 
     DateTime? dueDT;
     DateTime? startD;
     DateTime? endD;
+
+    if (_type == TaskType.singleDay) {
+      if(title.isEmpty && _dueDate == null && _dueTime == null){
+        Get.snackbar("Missing mandatory field", 'Please fill in all mandatory field');
+      }
+    }
+    else if (_type == TaskType.ranged) {
+      if(title.isEmpty && _startDate == null && _endDate == null){
+        Get.snackbar("Missing mandatory field", 'Please fill in all mandatory field');
+      }
+    }
+    if (title.isEmpty){
+      Get.snackbar('Missing title', 'Please enter a task title');
+      return;
+    }
 
     if (_type == TaskType.singleDay) {
       if (_dueDate == null || _dueTime == null) {
@@ -361,6 +372,8 @@ class _AddUpdateTaskSheetState extends State<AddUpdateTaskSheet> {
 
     final int estMinutes = (_parseInt(_estHours) * 60) + _parseInt(_estMins);
     final notif = _buildNotificationPrefs();
+
+    
 
     if (widget.initial == null) {
       final t = Task(

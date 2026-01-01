@@ -483,7 +483,8 @@ class TaskController extends GetxController {
       }
 
       // DueTime once
-      final dueSafe = due.isAfter(now) ? due : now.add(const Duration(minutes: 1));
+      final dueSafe =
+          due.isAfter(now) ? due : now.add(const Duration(minutes: 1));
       await notifier.scheduleOneShot(
         taskId: _cleanId(t.id),
         key: 'dueTime',
@@ -529,8 +530,10 @@ class TaskController extends GetxController {
     // -------------------------
     if (t.type == TaskType.ranged && t.dueDate != null) {
       final dueDate = t.dueDate!;
-      final dueToday0900 = DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
-      final dueTime = DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
+      final dueToday0900 =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
+      final dueTime =
+          DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59);
 
       if (!dueTime.isAfter(now)) return;
 
@@ -600,21 +603,31 @@ class TaskController extends GetxController {
   void _petReactOnStatus(Task before, Task after) {
     final now = DateTime.now();
 
-    // became late
+    // late transition (keep)
     if (before.computeStatus(now) != TaskStatus.late &&
         after.computeStatus(now) == TaskStatus.late) {
       pet.onTaskLate();
-
-      // ✅ 可选：late 时宠物安慰一句
       try {
-        TtsService.instance.speak("It’s okay… we can still fix this together. Lets go ");
+        TtsService.instance
+            .speak("It’s okay… we can still fix this together. Lets go ");
       } catch (_) {}
     }
 
-    // started (notStarted -> inProgress)
+    // started transition (keep)
     if (before.computeStatus(now) == TaskStatus.notStarted &&
         after.computeStatus(now) == TaskStatus.inProgress) {
       pet.onFocusStart();
+    }
+
+    // ✅ completed transition (NEW)
+    final beforeDone = before.status == TaskStatus.completed;
+    final afterDone = after.status == TaskStatus.completed;
+
+    if (!beforeDone && afterDone) {
+      pet.onTaskCompleted(); // now it will ALWAYS work
+      try {
+        TtsService.instance.speak("Mission complete! Proud of you ✨");
+      } catch (_) {}
     }
   }
 }
