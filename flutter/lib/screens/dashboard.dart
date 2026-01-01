@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/insightsController.dart';
-import 'package:v3/controller/petController.dart';
 import 'package:v3/controller/petMoodController.dart';
 import 'package:v3/controller/taskController.dart';
 import 'package:v3/models/task.dart';
@@ -16,12 +15,8 @@ class Dashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tc = Get.find<TaskController>();
-    final pet = Get.find<PetController>();
-    final petMood = Get.find()<PetMoodController>()
-    ? Get.find<PetMoodController>()
-    : Get.put(PetMoodController());
+    final petMood = Get.find<PetMoodController>(); // ✅ no put in build
 
-    // ✅ 2. 改成 Scaffold 结构
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -31,7 +26,6 @@ class Dashboard extends StatelessWidget {
         centerTitle: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // ✅ 3. 金币显示在这里！
         actions: const [
           CoinBadge(),
           SizedBox(width: 16),
@@ -41,19 +35,15 @@ class Dashboard extends StatelessWidget {
         final all = tc.tasks;
         final now = DateTime.now();
 
-        final notStarted = all
-            .where((t) => t.computeStatus(now) == TaskStatus.notStarted)
-            .length;
-        final inProgress = all
-            .where((t) => t.computeStatus(now) == TaskStatus.inProgress)
-            .length;
-        final completed =
-            all.where((t) => t.status == TaskStatus.completed).length;
+        final notStarted =
+            all.where((t) => t.computeStatus(now) == TaskStatus.notStarted).length;
+        final inProgress =
+            all.where((t) => t.computeStatus(now) == TaskStatus.inProgress).length;
+        final completed = all.where((t) => t.status == TaskStatus.completed).length;
         final late =
             all.where((t) => t.computeStatus(now) == TaskStatus.late).length;
-        final total =
-            (notStarted + inProgress + completed + late).clamp(1, 1 << 30);
 
+        final total = (notStarted + inProgress + completed + late).clamp(1, 1 << 30);
         double pct(int v) => v / total;
 
         final rec = tc.recommended(max: 5);
@@ -61,7 +51,7 @@ class Dashboard extends StatelessWidget {
         return ListView(
           padding: padAll(context, h: 16, v: 16),
           children: [
-            // Pet header
+            // ✅ Pet header: let it manage sprite + event priority internally
             const PetHeader(),
 
             // Donut Card
@@ -71,50 +61,46 @@ class Dashboard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Your Task Stats',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
+                    const Text(
+                      'Your Task Stats',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 220,
                       child: CustomPaint(
                         painter: _DonutPainter([
-                          (pct(notStarted), Colors.grey.shade400),
+                          (pct(notStarted), Colors.grey),
                           (pct(inProgress), Colors.blue),
                           (pct(completed), Colors.green),
                           (pct(late), Colors.red),
                         ]),
                         child: const Center(
-                          child: Text('Tasks',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 16)),
+                          child: Text(
+                            'Tasks',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _legend(
-                        color: Colors.grey.shade400,
-                        label: 'Not started',
-                        v: notStarted),
-                    _legend(
-                        color: Colors.blue,
-                        label: 'In progress',
-                        v: inProgress),
-                    _legend(
-                        color: Colors.green, label: 'Completed', v: completed),
+                    _legend(color: Colors.grey, label: 'Not started', v: notStarted),
+                    _legend(color: Colors.blue, label: 'In progress', v: inProgress),
+                    _legend(color: Colors.green, label: 'Completed', v: completed),
                     _legend(color: Colors.red, label: 'Late', v: late),
                   ],
                 ),
               ),
             ),
 
+            const SizedBox(height: 12),
+
             // AI Insights
-            const SizedBox(
-              height: 12,
-            ),
             const InsightsCard(),
 
-            // 在 ListView children 里（InsightsCard 后面）
+            const SizedBox(height: 12),
+
+            // ✅ Pet mood logs card (reactive)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -124,8 +110,7 @@ class Dashboard extends StatelessWidget {
                     children: [
                       Text(
                         "Pet mood: ${petMood.currentMood.value}",
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w800),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 10),
                       if (petMood.logs.isEmpty)
@@ -135,8 +120,7 @@ class Dashboard extends StatelessWidget {
                               padding: const EdgeInsets.only(bottom: 6),
                               child: Text(
                                 "${x.ts.toLocal().toString().substring(0, 16)} • ${x.mood} (${x.reason})",
-                                style:
-                                    const TextStyle(color: Color(0xFF666666)),
+                                style: const TextStyle(color: Color(0xFF666666)),
                               ),
                             )),
                     ],
@@ -145,8 +129,9 @@ class Dashboard extends StatelessWidget {
               ),
             ),
 
-            // Recommended
             const SizedBox(height: 12),
+
+            // Recommended
             if (rec.isNotEmpty)
               Card(
                 child: Padding(
@@ -154,9 +139,10 @@ class Dashboard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Recommended next',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700)),
+                      const Text(
+                        'Recommended next',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
                       const SizedBox(height: 6),
                       ...rec.map((t) => TaskListTile(task: t, compact: true)),
                     ],
@@ -164,7 +150,6 @@ class Dashboard extends StatelessWidget {
                 ),
               ),
 
-            // ✅ 4. 底部留白，防止被底部的 Floating Pet Head 挡住
             const SizedBox(height: 100),
           ],
         );
@@ -172,16 +157,16 @@ class Dashboard extends StatelessWidget {
     );
   }
 
-  Widget _legend(
-      {required Color color, required String label, required int v}) {
+  Widget _legend({required Color color, required String label, required int v}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 8),
           Expanded(child: Text(label)),
           Text('$v'),
@@ -191,7 +176,7 @@ class Dashboard extends StatelessWidget {
   }
 }
 
-// 👇 下面的类原封不动，负责画图和 AI 总结
+// Donut painter
 class _DonutPainter extends CustomPainter {
   _DonutPainter(this.parts);
   final List<(double, Color)> parts;
@@ -216,8 +201,7 @@ class _DonutPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeWidth = 24
         ..color = c;
-      canvas.drawArc(
-          Rect.fromCircle(center: center, radius: r), start, sweep, false, p);
+      canvas.drawArc(Rect.fromCircle(center: center, radius: r), start, sweep, false, p);
       start += sweep;
     }
   }
@@ -231,7 +215,7 @@ class InsightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Get.find<InsightsController>(); // ✅ only find
+    final c = Get.find<InsightsController>();
 
     return Card(
       child: Padding(
@@ -241,16 +225,17 @@ class InsightsCard extends StatelessWidget {
             return const ListTile(
               leading: CircularProgressIndicator(),
               title: Text('Analysis…'),
-              subtitle:
-                  Text('I am checking your tasks and generating insights.'),
+              subtitle: Text('I am checking your tasks and generating insights.'),
             );
           }
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('AI Insights',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const Text(
+                'AI Insights',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 8),
               if (c.summary.value.isEmpty)
                 TextButton.icon(
@@ -270,9 +255,7 @@ class InsightsCard extends StatelessWidget {
                       label: const Text('Restart Analysis'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: () {
-                        Get.toNamed('/graph');
-                      },
+                      onPressed: () => Get.toNamed('/graph'),
                       icon: const Icon(Icons.bar_chart),
                       label: const Text('Show graph'),
                     ),

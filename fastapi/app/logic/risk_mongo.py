@@ -11,56 +11,46 @@ def _dt_range(day: date):
 async def rollup_daily(db, user_id: str, day: date):
     start, end = _dt_range(day)
 
-    # tasks completed + avg priority
-    pipe_tasks = [
-        {"$match": {
-            "user_id": user_id,
-            "completed_at": {"$gte": start, "$lte": end}
-        }},
-        {"$group": {
-            "_id": None,
-            "count": {"$sum": 1},
-            "avg_prio": {"$avg": "$priority"}
-        }}
-    ]
-    t = await db.tasks.aggregate(pipe_tasks).to_list(1)
-    tasks_completed = (t[0]["count"] if t else 0)
-    avg_priority = (t[0]["avg_prio"] if t else None)
+    # ✅ tasks completed: count from events (matches your current system)
+    tasks_completed = await db.events.count_documents({
+        "user_id": user_id,
+        "type": "task_complete",
+        "ts": {"$gte": start, "$lte": end}
+    })
 
-    # overdue_count (from events)
+    # ✅ avg priority: skip for now (schema mismatch) — set None
+    avg_priority = None
+
     overdue_count = await db.events.count_documents({
         "user_id": user_id, "type": "overdue", "ts": {"$gte": start, "$lte": end}
     })
 
-    # focus minutes
+    # focus minutes (kept)
     f = await db.focus_sessions.aggregate([
         {"$match": {"user_id": user_id, "started_at": {"$gte": start, "$lte": end}}},
         {"$group": {"_id": None, "m": {"$sum": {"$ifNull": ["$actual_minutes", 0]}}}}
     ]).to_list(1)
     focus_minutes = int(f[0]["m"]) if f else 0
 
-    # breaks, hydration
     breaks_taken = await db.events.count_documents({
         "user_id": user_id, "type": "break_start", "ts": {"$gte": start, "$lte": end}
     })
+
     hydration_count = await db.events.count_documents({
         "user_id": user_id, "type": "hydrate", "ts": {"$gte": start, "$lte": end}
     })
 
-    # sleep minutes from events.context.minutes
     s = await db.events.aggregate([
         {"$match": {"user_id": user_id, "type": "sleep_log", "ts": {"$gte": start, "$lte": end}}},
         {"$group": {"_id": None, "mins": {"$sum": {"$ifNull": ["$context.minutes", 0]}}}}
     ]).to_list(1)
     sleep_minutes = int(s[0]["mins"]) if s else 0
 
-    # negative/anxious/tired mood count
     mood_negative_count = await db.mood_logs.count_documents({
         "user_id": user_id, "ts": {"$gte": start, "$lte": end},
         "label": {"$in": ["negative", "anxious", "tired"]}
     })
 
-    # late-night usage (events 00:00–05:59)
     ln = await db.events.aggregate([
         {"$match": {"user_id": user_id, "ts": {"$gte": start, "$lte": end}}},
         {"$project": {"hour": {"$hour": "$ts"}}},
@@ -72,16 +62,17 @@ async def rollup_daily(db, user_id: str, day: date):
     doc = {
         "user_id": user_id,
         "date": day.isoformat(),
-        "tasks_completed": tasks_completed,
+        "tasks_completed": int(tasks_completed),
         "overdue_count": int(overdue_count),
         "avg_priority_completed": avg_priority,
-        "total_focus_minutes": focus_minutes,
+        "total_focus_minutes": int(focus_minutes),
         "breaks_taken": int(breaks_taken),
         "hydration_count": int(hydration_count),
-        "sleep_minutes": sleep_minutes,
+        "sleep_minutes": int(sleep_minutes),
         "mood_negative_count": int(mood_negative_count),
-        "late_night_usage": int(late_night_usage)
+        "late_night_usage": int(late_night_usage),
     }
+
     await db.usage_stats_daily.update_one(
         {"user_id": user_id, "date": day.isoformat()},
         {"$set": doc},

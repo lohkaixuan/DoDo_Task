@@ -9,9 +9,7 @@ class ShopPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Get.isRegistered<ShopController>()
-        ? Get.find<ShopController>()
-        : Get.put(ShopController());
+    final c = Get.find<ShopController>();
 
     return Scaffold(
       appBar: AppBar(

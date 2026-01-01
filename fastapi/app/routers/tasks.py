@@ -65,6 +65,7 @@ async def update_task(flutter_id: str, task_data: Task):
         "coins": new_coins,   # 前端用这个直接更新 UI
     }
 
+
 # 4. 删除任务
 @router.delete("/tasks/{flutter_id}", tags=["Tasks"])
 async def delete_task(flutter_id: str):

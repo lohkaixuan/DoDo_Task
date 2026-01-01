@@ -1,3 +1,4 @@
+// lib/widgets/pet_header.dart
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:v3/controller/petController.dart';
 
 class PetHeader extends StatefulWidget {
   const PetHeader({super.key, this.imageOverride, this.statusOverride});
+
   final String? imageOverride;
   final String? statusOverride;
 
@@ -19,12 +21,12 @@ class _PetHeaderState extends State<PetHeader> {
   String? _bubble;
   Offset _pos = const Offset(16, 40);
 
-  PetController? _pet;
+  late final PetController _pet;
 
   @override
   void initState() {
     super.initState();
-    _pet = Get.isRegistered<PetController>() ? Get.find<PetController>() : null;
+    _pet = Get.find<PetController>();
     _idleTimer = Timer.periodic(const Duration(seconds: 4), (_) => _randomTick());
   }
 
@@ -34,29 +36,45 @@ class _PetHeaderState extends State<PetHeader> {
     super.dispose();
   }
 
+  // =========================
+  // Idle animation + bubble
+  // =========================
   void _randomTick() {
     if (!mounted) return;
 
-    // small random walk
+    // random walk
     if (_rng.nextDouble() < 0.25) {
       setState(() {
-        final dx = (_rng.nextDouble() * 40) - 20;
-        final dy = (_rng.nextDouble() * 20) - 10;
-        _pos = _pos.translate(dx, dy);
+        _pos = _pos.translate(
+          (_rng.nextDouble() * 40) - 20,
+          (_rng.nextDouble() * 20) - 10,
+        );
       });
     }
 
-    // random bubble
+    // random speech bubble
     if (_rng.nextDouble() < 0.18) {
-      final emo = _pet?.emotion.value ?? 60;
+      final emo = _pet.emotion.value;
       final isSad = emo < 25;
       final isHappy = emo >= 75;
 
       final bank = isSad
-          ? const ["Tiny step? 💪", "We’ll start small.", "Deep breath. You got this."]
+          ? const [
+              "Tiny step? 💪",
+              "We’ll start small.",
+              "Deep breath. You got this."
+            ]
           : (isHappy
-              ? const ["Nice streak! 🔥", "Proud of you 🎉", "Momentum GO! 🚀"]
-              : const ["Let’s do one task!", "Hydration check 💧", "Stretch time? 🧘"]);
+              ? const [
+                  "Nice streak! 🔥",
+                  "Proud of you 🎉",
+                  "Momentum GO! 🚀"
+                ]
+              : const [
+                  "Let’s do one task!",
+                  "Hydration check 💧",
+                  "Stretch time? 🧘"
+                ]);
 
       _showBubble(bank[_rng.nextInt(bank.length)]);
     }
@@ -70,19 +88,32 @@ class _PetHeaderState extends State<PetHeader> {
     });
   }
 
+  // =========================
+  // Build
+  // =========================
   @override
   Widget build(BuildContext context) {
-    if (_pet == null) return _buildContent(energy: 60, sprite: 'assets/idle.png');
-
     return Obx(() {
-      final energy = _pet!.emotion.value;
-      // ✅ EVENT-FIRST: sprite comes from controller (event > mood)
-      final sprite = widget.imageOverride ?? _pet!.currentSprite;
-      return _buildContent(energy: energy, sprite: sprite);
+      final energy = _pet.emotion.value;
+
+      // ✅ 核心：在这里读取，确保会刷新
+      final petSprite =
+          widget.imageOverride ?? _pet.currentSprite; // event > mood
+      final decorSprite = _pet.equippedDecor.value;   // lamp / plant
+
+      return _buildContent(
+        energy: energy,
+        petSprite: petSprite,
+        decorSprite: decorSprite,
+      );
     });
   }
 
-  Widget _buildContent({required int energy, required String sprite}) {
+  Widget _buildContent({
+    required int energy,
+    required String petSprite,
+    required String? decorSprite,
+  }) {
     final isSad = energy < 25;
     final isHappy = energy >= 75;
 
@@ -96,14 +127,15 @@ class _PetHeaderState extends State<PetHeader> {
       child: LayoutBuilder(builder: (context, box) {
         final maxX = (box.maxWidth - 128).clamp(0.0, double.infinity);
         final maxY = (box.maxHeight - 128).clamp(0.0, double.infinity);
-        final clamped = Offset(
-          _pos.dx.clamp(0.0, maxX).toDouble(),
-          _pos.dy.clamp(0.0, maxY).toDouble(),
+
+        _pos = Offset(
+          _pos.dx.clamp(0.0, maxX),
+          _pos.dy.clamp(0.0, maxY),
         );
-        if (clamped != _pos) _pos = clamped;
 
         return Stack(
           children: [
+            // 🌈 Background
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -116,6 +148,7 @@ class _PetHeaderState extends State<PetHeader> {
               ),
             ),
 
+            // 📊 Emotion bar + status
             Positioned(
               left: 16,
               right: 16,
@@ -123,11 +156,12 @@ class _PetHeaderState extends State<PetHeader> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Your Companion', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text('Your Companion',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(value: energy / 100.0),
+                    child: LinearProgressIndicator(value: energy / 100),
                   ),
                   const SizedBox(height: 6),
                   Text(statusText),
@@ -135,37 +169,55 @@ class _PetHeaderState extends State<PetHeader> {
               ),
             ),
 
-            if (_bubble != null)
+            // 🪴 Decor overlay（不会替换宠物）
+            if (decorSprite != null && decorSprite.isNotEmpty)
               Positioned(
-                left: (_pos.dx + 128 - 12).clamp(8, box.maxWidth - 208),
-                top: (_pos.dy - 8).clamp(8, box.maxHeight - 60),
-                child: AnimatedOpacity(
-                  opacity: 1,
-                  duration: const Duration(milliseconds: 220),
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: const [BoxShadow(blurRadius: 6, color: Colors.black26)],
-                    ),
-                    child: Text(_bubble!, style: const TextStyle(fontSize: 12)),
-                  ),
+                left: 12,
+                bottom: 12,
+                child: Image.asset(
+                  decorSprite,
+                  width: 90,
+                  height: 90,
+                  fit: BoxFit.contain,
                 ),
               ),
 
+            // 💬 Bubble
+            if (_bubble != null)
+              Positioned(
+                left: (_pos.dx + 120).clamp(8, box.maxWidth - 200),
+                top: (_pos.dy - 10).clamp(8, box.maxHeight - 60),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(blurRadius: 6, color: Colors.black26)
+                    ],
+                  ),
+                  child:
+                      Text(_bubble!, style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+
+            // 🐶 Pet
             Positioned(
               left: _pos.dx,
               top: _pos.dy,
               child: GestureDetector(
                 onPanUpdate: (d) => setState(() => _pos += d.delta),
-                onTap: () => _showBubble(isHappy ? "Woo! Keep going! 🎉" : "Hehe~ let's go!"),
+                onTap: () =>
+                    _showBubble(isHappy ? "Woo! Keep going! 🎉" : "Hehe~ let's go!"),
                 child: AnimatedScale(
                   duration: const Duration(milliseconds: 220),
                   scale: isHappy ? 1.08 : 1.0,
-                  curve: Curves.easeOut,
-                  child: Image.asset(sprite, width: 128, height: 128),
+                  child: Image.asset(
+                    petSprite,
+                    width: 128,
+                    height: 128,
+                  ),
                 ),
               ),
             ),

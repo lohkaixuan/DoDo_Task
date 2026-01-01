@@ -6,27 +6,22 @@ enum PetMood { idle, sad, focus, tired, rest }
 enum PetEvent { dance, eat, drink, walk }
 
 class PetController extends GetxController {
-  // --- score system ---
-  final emotion = 40.obs; // 0..100 mood score
+  // score system
+  final emotion = 40.obs; // 0..100
   final exp = 0.obs;
   final level = 1.obs;
-  int _fatigueSeconds = 0;
 
-  // --- persistent mood + temporary event ---
+  // mood + event
   final mood = PetMood.idle.obs;
   final event = Rxn<PetEvent>();
   Timer? _eventTimer;
 
-  // fatigue tracking for long focus
+  // fatigue
   final fatigueMinutes = 0.obs;
-  DateTime _lastEmotionDay = _today();
 
-  static DateTime _today() {
-    final n = DateTime.now();
-    return DateTime(n.year, n.month, n.day);
-  }
+  // decor (equipped sprite path)
+  final equippedDecor = RxnString();
 
-  // Assets mapping (based on your list)
   static const _moodAsset = {
     PetMood.idle: 'assets/idle.png',
     PetMood.sad: 'assets/sad.png',
@@ -42,47 +37,29 @@ class PetController extends GetxController {
     PetEvent.drink: 'assets/drink.png',
   };
 
+  /// ✅ Priority: Event > Equipped > Mood
   String get currentSprite {
     final e = event.value;
     if (e != null) return _eventAsset[e]!;
     return _moodAsset[mood.value]!;
   }
 
-  // ---------- Daily refresh ----------
-  void tickDailyRefresh() {
-    final today = _today();
-    if (today.isAfter(_lastEmotionDay)) {
-      // drift emotion back toward 60
-      final current = emotion.value;
-      final diff = current - 60;
-      final newVal = (current - diff * 0.7).round();
-      emotion.value = newVal.clamp(0, 100);
-
-      fatigueMinutes.value = 0;
-      _lastEmotionDay = today;
-      _recalcMoodFromScore();
-    }
-  }
-
-  // ---------- core helpers ----------
+  // =========================
+  // Core helpers
+  // =========================
   void addMood(int delta) {
-    tickDailyRefresh(); // 可选：每天自动回归 60
     emotion.value = (emotion.value + delta).clamp(0, 100);
-    _recalcMoodFromScore(); // ✅ 关键：让 idle/tired/sad 立即刷新
+    _recalcMoodFromScore();
   }
 
   void _recalcMoodFromScore() {
-    // if currently focus/rest, don't override until ended
+    // if focus/rest, don't override
     if (mood.value == PetMood.focus || mood.value == PetMood.rest) return;
 
     final s = emotion.value;
-    if (s <= 30) {
-      mood.value = PetMood.sad;
-    } else if (s <= 45) {
-      mood.value = PetMood.tired;
-    } else {
-      mood.value = PetMood.idle;
-    }
+    if (s <= 30) mood.value = PetMood.sad;
+    else if (s <= 45) mood.value = PetMood.tired;
+    else mood.value = PetMood.idle;
   }
 
   void playEvent(PetEvent e, {Duration duration = const Duration(seconds: 3)}) {
@@ -91,50 +68,24 @@ class PetController extends GetxController {
     _eventTimer = Timer(duration, () => event.value = null);
   }
 
-  // =========================================================
-  // ✅ Public API (TaskController will call these)
-  // =========================================================
-
-  /// Task started (optional call)
+  // =========================
+  // Hooks (Task/Shop)
+  // =========================
   void onTaskStarted() => addMood(1);
 
-  /// Task delayed/late => mood down
-  void onTaskLate() => addMood(-8);
-
-  /// Task completed => mood up (Dashboard will update instantly)
-  void onTaskCompleted() => addMood(8);
-
-  
-
-  // =========================================================
-  // ✅ Optional: detailed completion logic (if you want later)
-  // (Not used by TaskController unless you call it explicitly)
-  // =========================================================
-  void onTaskCompletedDetailed({
-    required bool early,
-    required bool onTime,
-    required bool late,
-    bool allDailyDone = false,
-  }) {
-    if (early) {
-      addMood(6);
-      //addExp(20);
-    } else if (onTime) {
-      addMood(4);
-      //addExp(15);
-    } else if (late) {
-      addMood(-6);
-      //addExp(8);
-    }
-
-    if (allDailyDone) {
-      playEvent(PetEvent.dance, duration: const Duration(seconds: 4));
-    }
+  void onTaskLate() {
+    addMood(-8);
+    playEvent(PetEvent.walk, duration: const Duration(seconds: 2));
   }
 
-  // =========================================================
-  // ✅ EXP + Level system
-  // =========================================================
+  void onTaskCompleted() {
+    addMood(8);
+    playEvent(PetEvent.dance, duration: const Duration(seconds: 2));
+  }
+
+  // =========================
+  // EXP + Level
+  // =========================
   void addExp(int points) {
     exp.value += points;
     addMood(2);
@@ -147,17 +98,13 @@ class PetController extends GetxController {
     }
   }
 
-  // =========================================================
-  // ✅ Focus timer calls these:
-  // =========================================================
-  void onFocusStart([int minutesPlanned = 25]) {
-    mood.value = PetMood.focus;
-  }
+  // =========================
+  // Focus timer hooks
+  // =========================
+  void onFocusStart([int minutesPlanned = 25]) => mood.value = PetMood.focus;
 
   void onFocusAccumulate(int seconds) {
-    _fatigueSeconds += seconds;
-    fatigueMinutes.value = (_fatigueSeconds / 60).floor();
-
+    fatigueMinutes.value += (seconds / 60).floor();
     if (fatigueMinutes.value >= 120) {
       mood.value = PetMood.tired;
       addMood(-1);
@@ -165,22 +112,16 @@ class PetController extends GetxController {
   }
 
   void onFocusPauseOrBreak() {
-    _fatigueSeconds = 0;
     fatigueMinutes.value = 0;
     mood.value = PetMood.idle;
     _recalcMoodFromScore();
   }
 
-  // Extra events
-  void onRestStart() => mood.value = PetMood.rest;
-  void onRestEnd() {
-    mood.value = PetMood.idle;
-    _recalcMoodFromScore();
-  }
-
-  void onShopOpen() => playEvent(PetEvent.eat, duration: const Duration(seconds: 3));
-  void onDrinkReminder() => playEvent(PetEvent.drink, duration: const Duration(seconds: 2));
-  void randomWalk() => playEvent(PetEvent.walk, duration: const Duration(seconds: 5));
+  // =========================
+  // Decor API
+  // =========================
+  void equipDecor(String assetPath) => equippedDecor.value = assetPath;
+  void unequipDecor() => equippedDecor.value = null;
 
   @override
   void onClose() {

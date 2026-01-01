@@ -17,30 +17,34 @@ import 'package:v3/services/notification_service.dart';
 class AppBinding extends Bindings {
   @override
   void dependencies() {
-    //Get.put<GetStorage>(GetStorage(), permanent: true);
+    // Core singletons
     Get.put<DioClient>(DioClient(), permanent: true);
 
-    final notifier = Get.isRegistered<NotificationService>()
-        ? Get.find<NotificationService>()
-        : Get.put(NotificationService(), permanent: true);
+    final notifier = Get.put<NotificationService>(
+      NotificationService(),
+      permanent: true,
+    );
 
-    // ORDER MATTERS
+    // Controllers (permanent = never auto delete)
     Get.put<WalletController>(WalletController(), permanent: true);
     Get.put<SettingController>(SettingController(), permanent: true);
     Get.put<PetController>(PetController(), permanent: true);
     Get.put<AuthController>(AuthController(), permanent: true);
+
+    // ✅ IMPORTANT: keep PetMood alive (no create/delete loop)
+    Get.put<PetMoodController>(PetMoodController(), permanent: true);
+
+    // ✅ IMPORTANT: keep ShopController alive so activeDecor stays
     Get.put<ShopController>(ShopController(), permanent: true);
 
-    Get.lazyPut<PetMoodController>(() => PetMoodController(), fenix: true);
-    Get.lazyPut<GraphController>(() => GraphController(), fenix:true);
+    // Other controllers
+    Get.lazyPut<GraphController>(() => GraphController(), fenix: true);
+    Get.lazyPut<MoodController>(() => MoodController(), fenix: true);
 
     Get.lazyPut<TaskController>(
       () => TaskController(notifier, Get.find<PetController>()),
       fenix: true,
     );
-
-    Get.lazyPut(() => MoodController(), fenix: true);
-
 
     Get.put<InsightsController>(InsightsController(), permanent: true);
 
