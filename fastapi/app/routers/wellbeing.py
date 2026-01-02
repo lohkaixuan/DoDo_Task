@@ -160,22 +160,21 @@ ROLLUP_TYPES = {
 async def ingest_event(
     body: EventIn,
     db=Depends(get_db),
-    user_id: str = Depends(require_user_id),  # ✅ 用 token user_id
+    user_id: str = Depends(require_user_id),
 ):
     doc = body.model_dump()
-    doc["user_id"] = user_id                 # ✅ 强制写入 token user_id
-    doc["ts"] = doc["ts"] or datetime.utcnow()
+    doc["user_id"] = user_id  # ✅ 不信任前端传 user_id
+    doc["ts"] = doc.get("ts") or datetime.utcnow()
 
     await db.events.insert_one(doc)
 
-    # ✅ 插入后立刻 rollup 当天（只对关键类型）
-    if body.type in ROLLUP_TYPES:
+    if body.type in {
+        "task_complete","overdue","break_start","hydrate",
+        "sleep_log","focus_start","focus_tick","app_open"
+    }:
         await rollup_daily(db, user_id, doc["ts"].date())
 
-    return created(
-        {"inserted": True, "event_id": body.event_id},
-        message="Event ingested"
-    )
+    return created({"inserted": True, "event_id": body.event_id}, message="Event ingested")
 
 
 @router.post("/rollup/{user_id}", response_model=Envelope[dict])

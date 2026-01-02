@@ -13,6 +13,7 @@ import 'petController.dart';
 import 'walletController.dart';
 import 'settingController.dart';
 import 'package:v3/services/tts_service.dart';
+import 'package:v3/services/wellbeing_service.dart';
 
 class TaskController extends GetxController {
   final tasks = <Task>[].obs;
@@ -23,6 +24,7 @@ class TaskController extends GetxController {
   final DioClient _dioClient = Get.find<DioClient>();
   late final WalletController walletC;
   late final SettingController settingC;
+  final _eventSvc = WellbeingEventService();
   Worker? _settingsWorker;
 
   bool _fetching = false;
@@ -195,6 +197,7 @@ class TaskController extends GetxController {
 
     final before = tasks[idx];
     if (before.status == TaskStatus.completed) return;
+    debugPrint("✅ completed -> now sending task_complete event");
 
     final after = before.copyWith(
       status: TaskStatus.completed,
@@ -202,6 +205,14 @@ class TaskController extends GetxController {
     );
 
     final res = await updateTask(after);
+    await _eventSvc.send(
+      type: "task_complete",
+      context: {
+      "task_id": _cleanId(id),
+      "title": after.title,
+      "priority": after.priority.name,
+      },
+    );
     final data = res?.data;
     final coins = (data is Map) ? data['coins'] : null;
 
