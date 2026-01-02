@@ -172,22 +172,44 @@ async def ingest_event(
 
     return created({"inserted": True, "event_id": body.event_id}, message="Event ingested")
 
+@router.get("/events/recent", response_model=Envelope[List[dict]])
+async def recent_events(
+    limit: int = Query(20, ge=1, le=200),
+    db=Depends(get_db),
+    user_id: str = Depends(require_user_id),
+):
+    cursor = db.events.find({"user_id": user_id}).sort("ts", -1).limit(limit)
+    rows = [_to_json(r) async for r in cursor]
+    return ok(rows, message="Recent events")
 
-@router.post("/rollup/{user_id}", response_model=Envelope[dict])
-async def do_rollup(user_id: str, day: Optional[date] = None, db=Depends(get_db)):
+
+@router.post("/rollup", response_model=Envelope[dict])
+async def do_rollup(
+    day: Optional[date] = None,
+    db=Depends(get_db),
+    user_id: str = Depends(require_user_id),
+):
     d = day or datetime.utcnow().date()
     out = await rollup_daily(db, user_id, d)
     return ok(out, message="Daily rollup")
 
 
-@router.get("/risk/{user_id}", response_model=Envelope[dict])
-async def risk(user_id: str, db=Depends(get_db)):
+
+@router.get("/risk", response_model=Envelope[dict])
+async def risk(
+    db=Depends(get_db),
+    user_id: str = Depends(require_user_id),
+):
     s = await compute_stress_score(db, user_id)
     return ok(s, message="Risk computed")
 
 
 @router.get("/tasks/{task_id}/recommend-due", response_model=Envelope[dict | None])
-async def recommend_due(task_id: str, user_id: str, db=Depends(get_db)):
+async def recommend_due(
+    task_id: str,
+    db=Depends(get_db),
+    user_id: str = Depends(require_user_id),
+):
     info = await recommend_new_due_date(db, user_id, task_id)
     return ok(info or {"message": "No chronic delay detected."}, message="Recommendation")
 
