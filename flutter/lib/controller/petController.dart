@@ -6,21 +6,30 @@ enum PetMood { idle, sad, focus, tired, rest }
 enum PetEvent { dance, eat, drink, walk }
 
 class PetController extends GetxController {
-  // score system
+  // -------------------------
+  // Score system
+  // -------------------------
   final emotion = 40.obs; // 0..100
   final exp = 0.obs;
   final level = 1.obs;
 
-  // mood + event
+  // -------------------------
+  // Mood + event
+  // -------------------------
   final mood = PetMood.idle.obs;
   final event = Rxn<PetEvent>();
   Timer? _eventTimer;
 
-  // fatigue
+  // -------------------------
+  // Fatigue
+  // -------------------------
   final fatigueMinutes = 0.obs;
 
-  // decor (equipped sprite path)
-  final equippedDecor = RxnString();
+  // -------------------------
+  // Sprites
+  // -------------------------
+  final currentPetSprite = 'assets/idle.png'.obs; // PET base
+  final equippedDecor = ''.obs; // DECOR overlay (empty = none)
 
   static const _moodAsset = {
     PetMood.idle: 'assets/idle.png',
@@ -37,32 +46,61 @@ class PetController extends GetxController {
     PetEvent.drink: 'assets/drink.png',
   };
 
-  /// ✅ Priority: Event > Equipped > Mood
+  /// ✅ Priority: Event > Pet > Mood
+  /// Decor should be drawn as overlay in UI (NOT replacing the pet).
   String get currentSprite {
     final e = event.value;
     if (e != null) return _eventAsset[e]!;
+    // show pet sprite if you have one
+    final pet = currentPetSprite.value;
+    if (pet.isNotEmpty) return pet;
+    // fallback mood icon
     return _moodAsset[mood.value]!;
   }
-  
-  void reset() {
-  emotion.value = 50;
-  exp.value = 0;
-  level.value = 1;
 
-  fatigueMinutes.value = 0;
+  /// Decor overlay path (empty string = none)
+  String get decorSprite => equippedDecor.value;
 
-  event.value = null;
-  mood.value = PetMood.idle;
+  bool get hasDecor => equippedDecor.value.isNotEmpty;
 
-  equippedDecor.value = null;
-
-  _eventTimer?.cancel();
-  _eventTimer = null;
+  // -------------------------
+  // Public APIs
+  // -------------------------
+  void equipPet(String petAsset) {
+    currentPetSprite.value = petAsset;
   }
 
-  // =========================
+  void equipDecor(String assetPath) {
+    equippedDecor.value = assetPath; // ✅ only set decor
+  }
+
+  void unequipDecor() {
+    equippedDecor.value = ''; // ✅ NOT null
+  }
+
+  void reset() {
+    emotion.value = 50;
+    exp.value = 0;
+    level.value = 1;
+
+    fatigueMinutes.value = 0;
+
+    event.value = null;
+    mood.value = PetMood.idle;
+
+    // keep pet sprite as default or keep current — your choice:
+    currentPetSprite.value = 'assets/pet/dodo_idle.png';
+
+    // remove decor
+    equippedDecor.value = '';
+
+    _eventTimer?.cancel();
+    _eventTimer = null;
+  }
+
+  // -------------------------
   // Core helpers
-  // =========================
+  // -------------------------
   void addMood(int delta) {
     emotion.value = (emotion.value + delta).clamp(0, 100);
     _recalcMoodFromScore();
@@ -73,9 +111,13 @@ class PetController extends GetxController {
     if (mood.value == PetMood.focus || mood.value == PetMood.rest) return;
 
     final s = emotion.value;
-    if (s <= 30) mood.value = PetMood.sad;
-    else if (s <= 45) mood.value = PetMood.tired;
-    else mood.value = PetMood.idle;
+    if (s <= 30) {
+      mood.value = PetMood.sad;
+    } else if (s <= 45) {
+      mood.value = PetMood.tired;
+    } else {
+      mood.value = PetMood.idle;
+    }
   }
 
   void playEvent(PetEvent e, {Duration duration = const Duration(seconds: 3)}) {
@@ -84,9 +126,9 @@ class PetController extends GetxController {
     _eventTimer = Timer(duration, () => event.value = null);
   }
 
-  // =========================
+  // -------------------------
   // Hooks (Task/Shop)
-  // =========================
+  // -------------------------
   void onTaskStarted() => addMood(1);
 
   void onTaskLate() {
@@ -99,9 +141,9 @@ class PetController extends GetxController {
     playEvent(PetEvent.dance, duration: const Duration(seconds: 2));
   }
 
-  // =========================
+  // -------------------------
   // EXP + Level
-  // =========================
+  // -------------------------
   void addExp(int points) {
     exp.value += points;
     addMood(2);
@@ -114,9 +156,9 @@ class PetController extends GetxController {
     }
   }
 
-  // =========================
+  // -------------------------
   // Focus timer hooks
-  // =========================
+  // -------------------------
   void onFocusStart([int minutesPlanned = 25]) => mood.value = PetMood.focus;
 
   void onFocusAccumulate(int seconds) {
@@ -132,12 +174,6 @@ class PetController extends GetxController {
     mood.value = PetMood.idle;
     _recalcMoodFromScore();
   }
-
-  // =========================
-  // Decor API
-  // =========================
-  void equipDecor(String assetPath) => equippedDecor.value = assetPath;
-  void unequipDecor() => equippedDecor.value = null;
 
   @override
   void onClose() {

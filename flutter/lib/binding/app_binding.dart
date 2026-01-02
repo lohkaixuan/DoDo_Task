@@ -21,23 +21,16 @@ class AppBinding extends Bindings {
     // Core singletons
     Get.put<DioClient>(DioClient(), permanent: true);
 
-    final notifier = Get.put<NotificationService>(
-      NotificationService(),
-      permanent: true,
-    );
+    final notifier = Get.find<NotificationService>();
 
     // Controllers (permanent = never auto delete)
     Get.put<WalletController>(WalletController(), permanent: true);
     Get.put<SettingController>(SettingController(), permanent: true);
     Get.put<PetController>(PetController(), permanent: true);
-    Get.put<UserController>(UserController(),permanent: true);
-    Get.put<AuthController>(AuthController(), permanent: true);
-
-    // ✅ IMPORTANT: keep PetMood alive (no create/delete loop)
     Get.put<PetMoodController>(PetMoodController(), permanent: true);
-
-    // ✅ IMPORTANT: keep ShopController alive so activeDecor stays
+    Get.put<UserController>(UserController(),permanent: true);
     Get.put<ShopController>(ShopController(), permanent: true);
+    Get.put<AuthController>(AuthController(), permanent: true);    
 
     // Other controllers
     Get.lazyPut<GraphController>(() => GraphController(), fenix: true);

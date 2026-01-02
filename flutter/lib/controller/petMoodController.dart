@@ -1,6 +1,7 @@
 // lib/controller/petMoodController.dart
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
+import 'package:v3/storage/authStorage.dart';
 import '../api/dioclient.dart';
 
 class PetMoodLog {
@@ -33,6 +34,11 @@ class PetMoodController extends GetxController {
   }
 
   Future<void> refreshAll() async {
+    final token = await AuthStorage.readToken();
+    if (token == null || token.isEmpty) {
+      print('🧊 [PetMood] skip refreshAll: no token');
+      return;
+    }
     await Future.wait([fetchPetState(), fetchHistory()]);
   }
 
@@ -52,19 +58,20 @@ class PetMoodController extends GetxController {
       final res = await _dio.dio.get('/wellbeing/pet/mood/history?limit=30');
       final root = Map<String, dynamic>.from(res.data as Map);
       final list = (root['data'] as List? ?? []).cast<dynamic>();
+
       final parsed = list
           .map((e) => PetMoodLog.fromJson(Map<String, dynamic>.from(e)))
           .toList();
 
+      // ✅ ensure latest-first
+      parsed.sort((a, b) => b.ts.compareTo(a.ts));
+
       logs.assignAll(parsed);
 
-      // ✅ tiny enhancement: if there is history, reflect latest mood instantly
       if (parsed.isNotEmpty) {
-        currentMood.value = parsed.first.mood;
+        currentMood.value = parsed.first.mood; // ✅ latest now
       }
-    } catch (_) {
-      // keep old logs, don't crash UI
-    }
+    } catch (_) {}
   }
 
   /// Optional manual override (keep it, useful for admin/debug)
@@ -83,8 +90,7 @@ class PetMoodController extends GetxController {
   }
 
   void reset() {
-    currentMood.value ='idle';
+    currentMood.value = 'idle';
     logs.clear();
-  } 
-
+  }
 }

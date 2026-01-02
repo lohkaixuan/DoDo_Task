@@ -38,11 +38,11 @@ class AuthController extends GetxController {
         await AuthStorage.save(res.token!, res.id, res.email);
         isLoggedIn.value = true;
 
-        Get.find<UserController>().fetchMe();
+        await Get.find<UserController>().fetchMe();
         // ✅ after login fetch balance 
         await walletC.fetchBalance();
         await Get.find<TaskController>().fetchTasks();
-        await Get.find<ShopController>().refreshAll;
+        await Get.find<ShopController>().refreshAll();
 
         Get.offAllNamed('/home');
       } else {
@@ -85,7 +85,9 @@ class AuthController extends GetxController {
     // ✅ RESET user-scoped controllers
     Get.find<UserController>().reset();
     Get.find<PetController>().reset();
-    Get.find<PetMoodController>().reset();
+    if (Get.isRegistered<ShopController>()) Get.find<ShopController>().reset();
+    if (Get.isRegistered<PetController>()) Get.find<PetController>().reset();
+    if (Get.isRegistered<PetMoodController>()) Get.find<PetMoodController>().reset();
     //Get.find<WalletController>().reset(); 
 
     await AuthStorage.clear();

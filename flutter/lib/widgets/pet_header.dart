@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/petController.dart';
+import 'package:v3/controller/petMoodController.dart';
 import 'package:v3/controller/userController.dart';
 
 class PetHeader extends StatefulWidget {
@@ -99,6 +100,11 @@ class _PetHeaderState extends State<PetHeader> {
       final petSprite =
           widget.imageOverride ?? _pet.currentSprite; // event > mood
       final decorSprite = _pet.equippedDecor.value; // lamp / plant
+      final petMood = Get.isRegistered<PetMoodController>()
+        ? Get.find<PetMoodController>()
+        : null;
+
+      final moodStr = petMood?.currentMood.value;
 
       return _buildContent(
         energy: energy,

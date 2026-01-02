@@ -10,12 +10,12 @@ import '../models/shop_item.dart';
 class ShopController extends GetxController {
   final DioClient _dio = Get.find<DioClient>();
   final WalletController wallet = Get.find<WalletController>();
-  final PetController _petSprite = Get.find<PetController>();
+
+  late final PetController _petSprite;
 
   PetMoodController? get _petMood => Get.isRegistered<PetMoodController>()
       ? Get.find<PetMoodController>()
       : null;
-
   final items = <ShopItem>[...ShopCatalog.items].obs;
 
   final foodsOwned = <String, int>{}.obs;
@@ -29,8 +29,17 @@ class ShopController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    //refreshAll();
+    _petSprite =  Get.find<PetController>();
+    refreshAll();
   }
+
+  void reset() {
+  foodsOwned.clear();
+  decorsOwned.clear();
+  activeDecor.value = null;
+  inventoryReady.value = false;
+  inventoryLoading.value = true;
+}
 
   Future<void> refreshAll() async {
     inventoryLoading.value = true;
@@ -38,9 +47,9 @@ class ShopController extends GetxController {
     try {
       print("🧾 ShopController.refreshAll() called");
       await Future.wait([
-        loadInventory(),
-        wallet.fetchBalance(),
-        _petMood?.refreshAll() ?? Future.value(),
+        loadInventory().catchError((_){}),
+        wallet.fetchBalance().catchError((_){}),
+        (_petMood?.refreshAll() ?? Future.value()).catchError((_){}),
       ]);
       inventoryReady.value = true;
     } catch (e) {
