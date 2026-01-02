@@ -230,33 +230,38 @@ class SettingPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Dodo Task Manager',
+                      'Here is the Logout button',
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 12),
                     const Text(
-                      'Priority reminders:\n'
-                      '- Urgent: 1h\n'
-                      '- High: 2h\n'
-                      '- Medium/Low: configurable\n'
-                      'Due-today always notifies at least once.',
+                      'Are you sure you want to logout this application? The notification service will stop after logged out.',
                       style: TextStyle(color: Colors.black54),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final notifier = Get.find<NotificationService>();
-                        final taskC = Get.find<TaskController>();
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final notifier = Get.find<NotificationService>();
+                              final taskC = Get.find<TaskController>();
 
-                        await notifier.cancelAllNotifications(); // ✅ 清系统排程
-                        await taskC.clearAll(); // ✅ 清本地 tasks + cancelForTask
-                        await AuthStorage.clear(); // ✅ 清 token/id/email
-                        await AuthStorage.clearActiveUserKey(); // ✅ 清 userKey
+                              await notifier
+                                  .cancelAllNotifications(); // ✅ 清系统排程
+                              await taskC
+                                  .clearAll(); // ✅ 清本地 tasks + cancelForTask
+                              await AuthStorage.clear(); // ✅ 清 token/id/email
+                              await AuthStorage
+                                  .clearActiveUserKey(); // ✅ 清 userKey
 
-                        Get.offAllNamed('/login');
-                      },
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Logout'),
+                              Get.offAllNamed('/login');
+                            },
+                            icon: const Icon(Icons.logout),
+                            label: const Text('Logout'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

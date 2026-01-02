@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/petController.dart';
+import 'package:v3/controller/userController.dart';
 
 class PetHeader extends StatefulWidget {
   const PetHeader({super.key, this.imageOverride, this.statusOverride});
@@ -16,6 +17,7 @@ class PetHeader extends StatefulWidget {
 }
 
 class _PetHeaderState extends State<PetHeader> {
+  final user = Get.find<UserController>();
   final _rng = Random();
   Timer? _idleTimer;
   String? _bubble;
@@ -27,7 +29,8 @@ class _PetHeaderState extends State<PetHeader> {
   void initState() {
     super.initState();
     _pet = Get.find<PetController>();
-    _idleTimer = Timer.periodic(const Duration(seconds: 4), (_) => _randomTick());
+    _idleTimer =
+        Timer.periodic(const Duration(seconds: 4), (_) => _randomTick());
   }
 
   @override
@@ -65,11 +68,7 @@ class _PetHeaderState extends State<PetHeader> {
               "Deep breath. You got this."
             ]
           : (isHappy
-              ? const [
-                  "Nice streak! 🔥",
-                  "Proud of you 🎉",
-                  "Momentum GO! 🚀"
-                ]
+              ? const ["Nice streak! 🔥", "Proud of you 🎉", "Momentum GO! 🚀"]
               : const [
                   "Let’s do one task!",
                   "Hydration check 💧",
@@ -99,7 +98,7 @@ class _PetHeaderState extends State<PetHeader> {
       // ✅ 核心：在这里读取，确保会刷新
       final petSprite =
           widget.imageOverride ?? _pet.currentSprite; // event > mood
-      final decorSprite = _pet.equippedDecor.value;   // lamp / plant
+      final decorSprite = _pet.equippedDecor.value; // lamp / plant
 
       return _buildContent(
         energy: energy,
@@ -117,10 +116,15 @@ class _PetHeaderState extends State<PetHeader> {
     final isSad = energy < 25;
     final isHappy = energy >= 75;
 
-    final statusText = widget.statusOverride ??
-        (isSad
-            ? "Feeling low… let's start tiny 💙"
-            : (isHappy ? 'Yay! Nice job 🎉' : 'Let’s knock out one task 💪'));
+    final moodLine = isSad
+        ? "Feeling low… let's start tiny 💙"
+        : (isHappy ? "Yay! Nice job 🎉" : "Let’s knock out one task 💪");
+
+    final nameLine = user.displayName.isNotEmpty
+        ? "Let’s go, ${user.displayName}! "
+        : "Let’s go! ";
+
+    final statusText = "$nameLine$moodLine";
 
     return SizedBox(
       height: 220,
@@ -197,8 +201,7 @@ class _PetHeaderState extends State<PetHeader> {
                       BoxShadow(blurRadius: 6, color: Colors.black26)
                     ],
                   ),
-                  child:
-                      Text(_bubble!, style: const TextStyle(fontSize: 12)),
+                  child: Text(_bubble!, style: const TextStyle(fontSize: 12)),
                 ),
               ),
 
@@ -208,8 +211,8 @@ class _PetHeaderState extends State<PetHeader> {
               top: _pos.dy,
               child: GestureDetector(
                 onPanUpdate: (d) => setState(() => _pos += d.delta),
-                onTap: () =>
-                    _showBubble(isHappy ? "Woo! Keep going! 🎉" : "Hehe~ let's go!"),
+                onTap: () => _showBubble(
+                    isHappy ? "Woo! Keep going! 🎉" : "Hehe~ let's go!"),
                 child: AnimatedScale(
                   duration: const Duration(milliseconds: 220),
                   scale: isHappy ? 1.08 : 1.0,

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from app.db import init_db
 from app.schemas.response import Envelope
 
-from app.routers import tasks, wellbeing, ai, auth, health_productivity, tts, shop
+from app.routers import tasks, wellbeing, ai, auth, health_productivity, tts, shop, users
 from app.routers.pet_ai import router as pet_ai_router
 from app.routers import balance
 
@@ -50,6 +50,7 @@ async def _startup():
 
 # ✅ Routers (order doesn't matter now, but keep clean)
 app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(tasks.router)
 app.include_router(wellbeing.router)
 app.include_router(ai.router)

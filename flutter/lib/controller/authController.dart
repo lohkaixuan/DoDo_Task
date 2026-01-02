@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:v3/api/apis.dart';
 import 'package:v3/api/dioclient.dart';
 import 'package:v3/controller/taskController.dart';
+import 'package:v3/controller/userController.dart';
 import 'package:v3/controller/walletController.dart';
 import 'package:v3/services/notification_service.dart';
 import 'package:v3/storage/authStorage.dart';
@@ -34,7 +35,8 @@ class AuthController extends GetxController {
         await AuthStorage.save(res.token!, res.id, res.email);
         isLoggedIn.value = true;
 
-        // ✅ 登录成功后再打 balance（这才是最稳的时机）
+        Get.find<UserController>().fetchMe();
+        // ✅ after login fetch balance 
         await walletC.fetchBalance();
         await Get.find<TaskController>().fetchTasks();
 

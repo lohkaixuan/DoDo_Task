@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:v3/controller/insightsController.dart';
 import 'package:v3/controller/petMoodController.dart';
 import 'package:v3/controller/taskController.dart';
+import 'package:v3/controller/userController.dart';
 import 'package:v3/models/task.dart';
 import 'package:v3/widgets/coin_badge.dart';
 import 'package:v3/widgets/pad.dart';
@@ -14,6 +15,7 @@ class Dashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = Get.find<UserController>();
     final tc = Get.find<TaskController>();
     final petMood = Get.find<PetMoodController>(); // ✅ no put in build
 
@@ -35,15 +37,19 @@ class Dashboard extends StatelessWidget {
         final all = tc.tasks;
         final now = DateTime.now();
 
-        final notStarted =
-            all.where((t) => t.computeStatus(now) == TaskStatus.notStarted).length;
-        final inProgress =
-            all.where((t) => t.computeStatus(now) == TaskStatus.inProgress).length;
-        final completed = all.where((t) => t.status == TaskStatus.completed).length;
+        final notStarted = all
+            .where((t) => t.computeStatus(now) == TaskStatus.notStarted)
+            .length;
+        final inProgress = all
+            .where((t) => t.computeStatus(now) == TaskStatus.inProgress)
+            .length;
+        final completed =
+            all.where((t) => t.status == TaskStatus.completed).length;
         final late =
             all.where((t) => t.computeStatus(now) == TaskStatus.late).length;
 
-        final total = (notStarted + inProgress + completed + late).clamp(1, 1 << 30);
+        final total =
+            (notStarted + inProgress + completed + late).clamp(1, 1 << 30);
         double pct(int v) => v / total;
 
         final rec = tc.recommended(max: 5);
@@ -51,6 +57,16 @@ class Dashboard extends StatelessWidget {
         return ListView(
           padding: padAll(context, h: 16, v: 16),
           children: [
+            Obx(() => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    user.displayName.isNotEmpty
+                        ? "Hi ${user.displayName} 👋"
+                        : "Hi there 👋",
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                )),
             // ✅ Pet header: let it manage sprite + event priority internally
             const PetHeader(),
 
@@ -63,7 +79,8 @@ class Dashboard extends StatelessWidget {
                   children: [
                     const Text(
                       'Your Task Stats',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -78,15 +95,23 @@ class Dashboard extends StatelessWidget {
                         child: const Center(
                           child: Text(
                             'Tasks',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 16),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _legend(color: Colors.grey, label: 'Not started', v: notStarted),
-                    _legend(color: Colors.blue, label: 'In progress', v: inProgress),
-                    _legend(color: Colors.green, label: 'Completed', v: completed),
+                    _legend(
+                        color: Colors.grey,
+                        label: 'Not started',
+                        v: notStarted),
+                    _legend(
+                        color: Colors.blue,
+                        label: 'In progress',
+                        v: inProgress),
+                    _legend(
+                        color: Colors.green, label: 'Completed', v: completed),
                     _legend(color: Colors.red, label: 'Late', v: late),
                   ],
                 ),
@@ -110,7 +135,8 @@ class Dashboard extends StatelessWidget {
                     children: [
                       Text(
                         "Pet mood: ${petMood.currentMood.value}",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 10),
                       if (petMood.logs.isEmpty)
@@ -120,7 +146,8 @@ class Dashboard extends StatelessWidget {
                               padding: const EdgeInsets.only(bottom: 6),
                               child: Text(
                                 "${x.ts.toLocal().toString().substring(0, 16)} • ${x.mood} (${x.reason})",
-                                style: const TextStyle(color: Color(0xFF666666)),
+                                style:
+                                    const TextStyle(color: Color(0xFF666666)),
                               ),
                             )),
                     ],
@@ -141,7 +168,8 @@ class Dashboard extends StatelessWidget {
                     children: [
                       const Text(
                         'Recommended next',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 6),
                       ...rec.map((t) => TaskListTile(task: t, compact: true)),
@@ -157,7 +185,8 @@ class Dashboard extends StatelessWidget {
     );
   }
 
-  Widget _legend({required Color color, required String label, required int v}) {
+  Widget _legend(
+      {required Color color, required String label, required int v}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -201,7 +230,8 @@ class _DonutPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeWidth = 24
         ..color = c;
-      canvas.drawArc(Rect.fromCircle(center: center, radius: r), start, sweep, false, p);
+      canvas.drawArc(
+          Rect.fromCircle(center: center, radius: r), start, sweep, false, p);
       start += sweep;
     }
   }
@@ -225,7 +255,8 @@ class InsightsCard extends StatelessWidget {
             return const ListTile(
               leading: CircularProgressIndicator(),
               title: Text('Analysis…'),
-              subtitle: Text('I am checking your tasks and generating insights.'),
+              subtitle:
+                  Text('I am checking your tasks and generating insights.'),
             );
           }
 
@@ -253,11 +284,11 @@ class InsightsCard extends StatelessWidget {
                       onPressed: c.refreshInsights,
                       icon: const Icon(Icons.refresh),
                       label: const Text('Restart Analysis'),
-                    ),
+                      /*),
                     OutlinedButton.icon(
                       onPressed: () => Get.toNamed('/graph'),
                       icon: const Icon(Icons.bar_chart),
-                      label: const Text('Show graph'),
+                      label: const Text('Show graph'),*/
                     ),
                   ],
                 ),
