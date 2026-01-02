@@ -43,6 +43,22 @@ class PetController extends GetxController {
     if (e != null) return _eventAsset[e]!;
     return _moodAsset[mood.value]!;
   }
+  
+  void reset() {
+  emotion.value = 50;
+  exp.value = 0;
+  level.value = 1;
+
+  fatigueMinutes.value = 0;
+
+  event.value = null;
+  mood.value = PetMood.idle;
+
+  equippedDecor.value = null;
+
+  _eventTimer?.cancel();
+  _eventTimer = null;
+  }
 
   // =========================
   // Core helpers

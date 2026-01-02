@@ -29,18 +29,22 @@ class ShopController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    refreshAll();
+    //refreshAll();
   }
 
   Future<void> refreshAll() async {
     inventoryLoading.value = true;
+    inventoryReady.value = false;
     try {
+      print("🧾 ShopController.refreshAll() called");
       await Future.wait([
         loadInventory(),
         wallet.fetchBalance(),
         _petMood?.refreshAll() ?? Future.value(),
       ]);
       inventoryReady.value = true;
+    } catch (e) {
+      print("❌ refreshAll failed: $e");
     } finally {
       inventoryLoading.value = false;
     }
@@ -69,7 +73,9 @@ class ShopController extends GetxController {
   }
 
   Future<void> loadInventory() async {
+    print("🧾 calling GET /shop/inventory");
     final res = await _dio.dio.get('/shop/inventory');
+    print("✅ /shop/inventory status=${res.statusCode}");
 
     final root = (res.data is Map)
         ? Map<String, dynamic>.from(res.data as Map)
@@ -122,10 +128,13 @@ class ShopController extends GetxController {
       );
 
       final root = (res.data is Map) ? Map<String, dynamic>.from(res.data) : {};
-      final data = (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
+      final data =
+          (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
 
-      if (data['coins'] != null) wallet.setCoins((data['coins'] as num).toInt());
-      if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
+      if (data['coins'] != null)
+        wallet.setCoins((data['coins'] as num).toInt());
+      if (data['inventory'] is Map)
+        _applyInventory(Map<String, dynamic>.from(data['inventory']));
 
       await _petMood?.refreshAll();
       Get.snackbar("Purchased ✅", "You bought ${it.name}!");
@@ -141,11 +150,14 @@ class ShopController extends GetxController {
     loading.value = true;
 
     try {
-      final res = await _dio.dio.post('/shop/use-food', data: {'item_id': it.id});
+      final res =
+          await _dio.dio.post('/shop/use-food', data: {'item_id': it.id});
 
       final root = (res.data is Map) ? Map<String, dynamic>.from(res.data) : {};
-      final data = (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
-      if (data['inventory'] is Map) _applyInventory(Map<String, dynamic>.from(data['inventory']));
+      final data =
+          (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
+      if (data['inventory'] is Map)
+        _applyInventory(Map<String, dynamic>.from(data['inventory']));
 
       await _petMood?.refreshAll();
       Get.snackbar("Yum! 🍽️", "${it.name} used.");
@@ -161,10 +173,12 @@ class ShopController extends GetxController {
     loading.value = true;
 
     try {
-      final res = await _dio.dio.post('/shop/equip-decor', data: {'item_id': it.id});
+      final res =
+          await _dio.dio.post('/shop/equip-decor', data: {'item_id': it.id});
 
       final root = (res.data is Map) ? Map<String, dynamic>.from(res.data) : {};
-      final data = (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
+      final data =
+          (root['data'] is Map) ? Map<String, dynamic>.from(root['data']) : {};
 
       if (data['inventory'] is Map) {
         _applyInventory(Map<String, dynamic>.from(data['inventory']));

@@ -81,4 +81,10 @@ class PetMoodController extends GetxController {
       loading.value = false;
     }
   }
+
+  void reset() {
+    currentMood.value ='idle';
+    logs.clear();
+  } 
+
 }

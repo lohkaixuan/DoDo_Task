@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/api/apis.dart';
 import 'package:v3/api/dioclient.dart';
+import 'package:v3/controller/petController.dart';
+import 'package:v3/controller/petMoodController.dart';
+import 'package:v3/controller/shopController.dart';
 import 'package:v3/controller/taskController.dart';
 import 'package:v3/controller/userController.dart';
 import 'package:v3/controller/walletController.dart';
@@ -39,6 +42,7 @@ class AuthController extends GetxController {
         // ✅ after login fetch balance 
         await walletC.fetchBalance();
         await Get.find<TaskController>().fetchTasks();
+        await Get.find<ShopController>().refreshAll;
 
         Get.offAllNamed('/home');
       } else {
@@ -73,12 +77,18 @@ class AuthController extends GetxController {
     final notifier = Get.find<NotificationService>();
     final taskC = Get.find<TaskController>();
 
-    isLoggedIn.value = false;         // ✅ add logout state
+    isLoggedIn.value = false;
 
     await notifier.cancelAllNotifications();
     await taskC.clearAll();
 
-    await AuthStorage.clear(); // token/email...
+    // ✅ RESET user-scoped controllers
+    Get.find<UserController>().reset();
+    Get.find<PetController>().reset();
+    Get.find<PetMoodController>().reset();
+    //Get.find<WalletController>().reset(); 
+
+    await AuthStorage.clear();
     await AuthStorage.clearActiveUserKey();
 
     Get.offAllNamed('/login');

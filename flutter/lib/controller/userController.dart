@@ -30,4 +30,11 @@ class UserController extends GetxController {
       // silent fail
     }
   }
+  
+  void reset() {
+    userId.value = '';
+    email.value = '';
+    displayName.value = '';
+    coins.value = 0;
+  }
 }
