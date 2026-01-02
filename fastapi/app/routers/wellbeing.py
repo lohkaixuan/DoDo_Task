@@ -141,20 +141,14 @@ async def get_pet_mood_history(
 # -----------------------------
 class EventIn(BaseModel):
     event_id: str
-    # ✅ 建议：不要让前端传 user_id（避免伪造），我们用 token 的 user_id
     type: Literal[
         "task_start","task_complete","overdue","break_start","break_end",
         "hydrate","sleep_log","focus_start","focus_tick","shop_purchase",
+        "shop_use_food","shop_equip_decor",
         "app_open","app_idle","emotion_text","emotion_voice"
     ]
     ts: Optional[datetime] = None
     context: dict = Field(default_factory=dict)
-
-# ✅ 哪些 event 会影响 usage_stats_daily
-ROLLUP_TYPES = {
-    "task_complete","overdue","break_start","hydrate","sleep_log",
-    "focus_start","focus_tick","app_open","app_idle"
-}
 
 @router.post("/events", response_model=Envelope[dict])
 async def ingest_event(
@@ -163,14 +157,16 @@ async def ingest_event(
     user_id: str = Depends(require_user_id),
 ):
     doc = body.model_dump()
-    doc["user_id"] = user_id  # ✅ 不信任前端传 user_id
-    doc["ts"] = doc.get("ts") or datetime.utcnow()
+    doc["user_id"] = user_id                    # ✅ 用 token 的 user_id，不信前端
+    doc["ts"] = doc["ts"] or datetime.utcnow()
 
     await db.events.insert_one(doc)
 
+    # ✅ 这些事件会触发 daily rollup
     if body.type in {
         "task_complete","overdue","break_start","hydrate",
-        "sleep_log","focus_start","focus_tick","app_open"
+        "sleep_log","focus_start","focus_tick","app_open",
+        "shop_purchase","shop_use_food","shop_equip_decor",
     }:
         await rollup_daily(db, user_id, doc["ts"].date())
 
