@@ -24,7 +24,7 @@ class TaskController extends GetxController {
   final DioClient _dioClient = Get.find<DioClient>();
   late final WalletController walletC;
   late final SettingController settingC;
-  final _eventSvc = WellbeingEventService();
+  //final _eventSvc = WellbeingEventService();
   Worker? _settingsWorker;
 
   bool _fetching = false;
@@ -205,12 +205,12 @@ class TaskController extends GetxController {
     );
 
     final res = await updateTask(after);
-    await _eventSvc.send(
-      type: "task_complete",
+    await _sendEvent(
+      "task_complete",
       context: {
-      "task_id": _cleanId(id),
-      "title": after.title,
-      "priority": after.priority.name,
+        "task_id": _cleanId(id),
+        "title": after.title,
+        "priority": after.priority.name,
       },
     );
     final data = res?.data;
@@ -308,6 +308,13 @@ class TaskController extends GetxController {
     final t = tasks[i];
     if (t.status != TaskStatus.inProgress) {
       updateTask(t.copyWith(status: TaskStatus.inProgress));
+    
+    _sendEvent(
+      "focus_start",
+      context: {
+        "task_id": _cleanId(id),
+      },
+    );
 
       try {
         TtsService.instance.speak("Focus mode on. I’m with you ");
@@ -337,7 +344,8 @@ class TaskController extends GetxController {
       final mins = t.dueDateTime!.difference(now).inMinutes;
       due = (mins <= 0) ? 3.0 : (1440 - mins).clamp(0, 1440) / 1440 * 2.0;
     } else if (t.type == TaskType.ranged && t.dueDate != null) {
-      final end = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59, 59);
+      final end = DateTime(
+          t.dueDate!.year, t.dueDate!.month, t.dueDate!.day, 23, 59, 59);
       final mins = end.difference(now).inMinutes;
       due = (mins <= 0) ? 2.5 : (4320 - mins).clamp(0, 4320) / 4320 * 1.7;
     }
@@ -359,11 +367,32 @@ class TaskController extends GetxController {
   List<Task> recommended({int max = 5}) {
     final now = DateTime.now();
     final candidates = tasks
-        .where((t) => t.status != TaskStatus.completed && t.status != TaskStatus.archived)
+        .where((t) =>
+            t.status != TaskStatus.completed && t.status != TaskStatus.archived)
         .toList();
 
-    candidates.sort((a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
+    candidates.sort(
+        (a, b) => _recommendScore(b, now).compareTo(_recommendScore(a, now)));
     return candidates.take(max).toList();
+  }
+  
+  // =========================================================
+  // Send Event
+  // =========================================================
+
+  Future<void> _sendEvent(String type, {Map<String, dynamic>? context}) async {
+    try {
+      await _dioClient.dio.post(
+        "/wellbeing/events",
+        data: {
+          "event_id": DateTime.now().millisecondsSinceEpoch.toString(),
+          "type": type,
+          "context": context ?? {},
+        },
+      );
+    } catch (e) {
+      debugPrint("❌ sendEvent failed: $e");
+    }
   }
 
   // =========================================================
@@ -393,7 +422,8 @@ class TaskController extends GetxController {
     return jsonEncode({'taskId': _cleanId(t.id), 'subTaskId': subTaskId});
   }
 
-  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   // =========================================================
   // Notifications Scheduling (keep your logic)
@@ -409,9 +439,12 @@ class TaskController extends GetxController {
 
     final now = DateTime.now();
 
-    final bool dueToday =
-        (t.type == TaskType.singleDay && t.dueDateTime != null && _isSameDay(t.dueDateTime!, now)) ||
-        (t.type == TaskType.ranged && t.dueDate != null && _isSameDay(t.dueDate!, now));
+    final bool dueToday = (t.type == TaskType.singleDay &&
+            t.dueDateTime != null &&
+            _isSameDay(t.dueDateTime!, now)) ||
+        (t.type == TaskType.ranged &&
+            t.dueDate != null &&
+            _isSameDay(t.dueDate!, now));
 
     final bool allowNormalNoti = t.focusPrefs.notificationsEnabled;
 
@@ -437,12 +470,14 @@ class TaskController extends GetxController {
     if (beforeComputed != TaskStatus.late && afterComputed == TaskStatus.late) {
       pet.onTaskLate();
       try {
-        TtsService.instance.speak("It’s okay… we can still fix this together. Lets go ");
+        TtsService.instance
+            .speak("It’s okay… we can still fix this together. Lets go ");
       } catch (_) {}
     }
 
     // started transition
-    if (beforeComputed == TaskStatus.notStarted && afterComputed == TaskStatus.inProgress) {
+    if (beforeComputed == TaskStatus.notStarted &&
+        afterComputed == TaskStatus.inProgress) {
       pet.onFocusStart();
     }
 

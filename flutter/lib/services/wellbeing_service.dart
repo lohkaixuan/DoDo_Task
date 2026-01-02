@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:get/get.dart';
 import 'package:v3/api/dioclient.dart';
-import 'package:v3/storage/authStorage.dart';
 
 class WellbeingEventService {
   final DioClient _dio = Get.find<DioClient>();
@@ -14,21 +13,18 @@ class WellbeingEventService {
 
   Future<void> send({
     required String type,
-    required Map<String, dynamic> context,
+    Map<String, dynamic>? context,
+    DateTime? ts,
   }) async {
-    final userId = await AuthStorage.readUserId(); // ✅ 你要有这个
-    if (userId == null || userId.isEmpty) return;
-
     try {
       await _dio.dio.post('/wellbeing/events', data: {
         "event_id": _id(),
-        "user_id": userId,
         "type": type,
-        "ts": DateTime.now().toUtc().toIso8601String(),
-        "context": context,
+        "ts": (ts ?? DateTime.now()).toUtc().toIso8601String(),
+        "context": context ?? {},
       });
     } catch (_) {
-      // 不要影响主流程
+      // do nothing: never break main flow
     }
   }
 }

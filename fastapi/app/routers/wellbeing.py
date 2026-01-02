@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from app.db import get_db
 from app.schemas.response import Envelope
 from app.utils.response_utils import ok, created
-from app.logic.risk_mongo import compute_stress_score, recommend_new_due_date, rollup_daily
+from app.logic.risk_mongo import compute_stress_score, recommend_new_due_date, rollup_daily, focus_open, focus_close
 from app.services.auth_service import require_user_id
 
 router = APIRouter(prefix="/wellbeing", tags=["wellbeing"])
@@ -157,12 +157,25 @@ async def ingest_event(
     user_id: str = Depends(require_user_id),
 ):
     doc = body.model_dump()
-    doc["user_id"] = user_id                    # ✅ 用 token 的 user_id，不信前端
+    doc["user_id"] = user_id
     doc["ts"] = doc["ts"] or datetime.utcnow()
 
     await db.events.insert_one(doc)
 
-    # ✅ 这些事件会触发 daily rollup
+    # ✅ handle focus sessions
+    if body.type == "focus_start":
+        await focus_open(
+            db,
+            user_id=user_id,
+            ts=doc["ts"],
+            task_id=doc.get("context", {}).get("task_id"),
+        )
+
+    # close focus when something indicates stopping
+    if body.type in {"task_complete", "break_start", "app_idle"}:
+        await focus_close(db, user_id=user_id, ts=doc["ts"], reason=body.type)
+
+    # ✅ rollup triggers
     if body.type in {
         "task_complete","overdue","break_start","hydrate",
         "sleep_log","focus_start","focus_tick","app_open",

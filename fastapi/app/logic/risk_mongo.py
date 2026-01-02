@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, date
 from statistics import median
 from bson.son import SON
+from typing import Optional
 
 def _dt_range(day: date):
     start = datetime.combine(day, datetime.min.time())
@@ -78,6 +79,39 @@ async def rollup_daily(db, user_id: str, day: date):
         {"$set": doc},
         upsert=True
     )
+    return doc
+
+async def focus_open(db, user_id: str, ts: datetime, task_id: Optional[str] = None):
+    # only keep ONE active session per user
+    await db.focus_active.update_one(
+        {"user_id": user_id},
+        {"$set": {"user_id": user_id, "task_id": task_id, "started_at": ts}},
+        upsert=True
+    )
+
+async def focus_close(db, user_id: str, ts: datetime, reason: str = "auto"):
+    active = await db.focus_active.find_one({"user_id": user_id})
+    if not active:
+        return None
+
+    started_at = active.get("started_at")
+    if not started_at:
+        await db.focus_active.delete_one({"user_id": user_id})
+        return None
+
+    minutes = int(max(0, (ts - started_at).total_seconds() // 60))
+
+    doc = {
+        "user_id": user_id,
+        "task_id": active.get("task_id"),
+        "started_at": started_at,
+        "ended_at": ts,
+        "actual_minutes": minutes,
+        "close_reason": reason
+    }
+
+    await db.focus_sessions.insert_one(doc)
+    await db.focus_active.delete_one({"user_id": user_id})
     return doc
 
 async def _overdue_streak(db, user_id: str, until_day: date, max_days=7):
