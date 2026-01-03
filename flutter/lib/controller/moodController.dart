@@ -52,10 +52,9 @@ class MoodController extends GetxController {
         data: req.toJson(),
         options: await _authOpt(),
       );
-      
 
       await fetchHistory(); // ✅ refresh immediately
-      
+
       notes.value = "";
       notesCtrl.clear();
       Get.snackbar("Saved ✅", "Mood logged!");
@@ -69,7 +68,6 @@ class MoodController extends GetxController {
   Future<void> fetchHistory() async {
     loadingHistory.value = true;
     try {
-      // ✅ token version
       final res = await _dio.dio.get(
         '/wellbeing/mood/history?limit=30',
         options: await _authOpt(),
@@ -77,10 +75,22 @@ class MoodController extends GetxController {
 
       final data = res.data;
       final list = (data is Map) ? (data['data'] as List? ?? []) : <dynamic>[];
-      history.assignAll(list.map((e) => MoodLog.fromJson(Map<String, dynamic>.from(e))));
+
+      final parsed = list
+          .map((e) => MoodLog.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+
+      // ✅ optional: latest first
+      parsed.sort((a, b) => b.ts.compareTo(a.ts));
+
+      history.assignAll(parsed);
+    } catch (e) {
+      // ✅ swallow errors so UI doesn't crash
+      print("⚠️ MoodController.fetchHistory failed: $e");
+      // optional UI hint
+      // Get.snackbar("Network", "Unable to load mood history");
     } finally {
       loadingHistory.value = false;
     }
   }
 }
-

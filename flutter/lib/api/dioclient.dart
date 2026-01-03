@@ -9,7 +9,7 @@ class DioClient {
       BaseOptions(
         baseUrl: "https://dodo-task-1.onrender.com",
         connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 50),
         responseType: ResponseType.json,
         headers: {
           'Content-Type': 'application/json',
