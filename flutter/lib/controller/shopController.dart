@@ -29,17 +29,19 @@ class ShopController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _petSprite =  Get.find<PetController>();
+    _petSprite = Get.find<PetController>();
     refreshAll();
   }
 
   void reset() {
-  foodsOwned.clear();
-  decorsOwned.clear();
-  activeDecor.value = null;
-  inventoryReady.value = false;
-  inventoryLoading.value = true;
-}
+    foodsOwned.clear();
+    decorsOwned.clear();
+    activeDecor.value = null;
+    inventoryReady.value = false;
+    inventoryLoading.value = true;
+
+    _petSprite.unequipDecor();
+  }
 
   Future<void> refreshAll() async {
     inventoryLoading.value = true;
@@ -47,9 +49,9 @@ class ShopController extends GetxController {
     try {
       print("🧾 ShopController.refreshAll() called");
       await Future.wait([
-        loadInventory().catchError((_){}),
-        wallet.fetchBalance().catchError((_){}),
-        (_petMood?.refreshAll() ?? Future.value()).catchError((_){}),
+        loadInventory().catchError((_) {}),
+        wallet.fetchBalance().catchError((_) {}),
+        (_petMood?.refreshAll() ?? Future.value()).catchError((_) {}),
       ]);
       inventoryReady.value = true;
     } catch (e) {
@@ -148,7 +150,8 @@ class ShopController extends GetxController {
       await _petMood?.refreshAll();
       Get.snackbar("Purchased ✅", "You bought ${it.name}!");
     } on DioException catch (e) {
-      Get.snackbar("Purchase failed ❌", "${e.response?.data ?? e.message}");
+      Get.snackbar("Not enough coins 💸", "You need more coins to buy ${it.name}");
+      //Get.snackbar("Purchase failed ❌", "${e.response?.data ?? e.message}");
     } finally {
       loading.value = false;
     }

@@ -34,6 +34,8 @@ class WalletController extends GetxController {
     }
   }
 
+// For future use - mini game
+/*
   Future<bool> spendCoins({
     required int amount,
     required String itemName,
@@ -64,7 +66,7 @@ class WalletController extends GetxController {
     } catch (_) {}
 
     return false;
-  }
+  }*/
 
   void setCoins(int v) {
     coins.value = v;
