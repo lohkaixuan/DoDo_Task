@@ -1,4 +1,13 @@
-# app/routers/pet_ai.py
+# ==================================================
+# Program Name   : pet_ai.py
+# Purpose        : Pet-related AI logic (pet mood inference, behavior rules, pet feedback generation)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 21 September 2025
+# Last Modified  : 12 December 2025
+# ==================================================
+
 from __future__ import annotations
 
 import os

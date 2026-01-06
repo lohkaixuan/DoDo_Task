@@ -1,3 +1,13 @@
+# ==================================================
+# Program Name   : tasks.py
+# Purpose        : Task management endpoints (create, update, delete, list tasks; statuses, priorities, scheduling)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 28 August 2025
+# Last Modified  : 15 December 2025
+# ==================================================
+
 from fastapi import APIRouter, HTTPException, Body
 from typing import List
 from app.models.user import User

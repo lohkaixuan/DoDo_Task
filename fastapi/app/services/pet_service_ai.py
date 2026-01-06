@@ -1,4 +1,14 @@
-# app/services/pet_service_ai.py
+# ==================================================
+# Program Name   : pet_service_ai.py
+# Purpose        : Provide AI-based virtual pet intelligence services, including sentiment analysis, AI chat response generation,
+#                  and safe fallback handling for external AI API failures.
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 25 August 2025
+# Last Modified  : 15 December 2025
+# ==================================================
+
 import os
 import json
 import httpx

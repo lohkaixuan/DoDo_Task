@@ -1,4 +1,14 @@
-# app/routers/ai.py
+# ==================================================
+# Program Name   : ai.py
+# Purpose        : AI-related endpoints or orchestration (routing AI features and coordinating AI services)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 18 September 2025
+# Last Modified  : 11 December 2025
+# ==================================================
+
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any

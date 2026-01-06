@@ -1,4 +1,14 @@
-# app/deps.py
+# ==================================================
+# Program Name   : deps.py
+# Purpose        : Provide FastAPI dependency utilities including JWT token
+#                  validation and current authenticated user resolution.
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 22 August 2025
+# Last Modified  : 12 December 2025
+# ==================================================
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError

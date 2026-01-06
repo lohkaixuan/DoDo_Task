@@ -1,4 +1,13 @@
-# app/routers/wellbeing.py
+# ==================================================
+# Program Name   : wellbeing.py
+# Purpose        : Wellbeing & gamification endpoints (mood logs, pet mood logs, events ingestion, usage rollups, risk scores)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 10 September 2025
+# Last Modified  : 15 December 2025
+# ==================================================
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, Dict, Any, List

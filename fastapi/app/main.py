@@ -1,3 +1,15 @@
+# ==================================================
+# Program Name   : main.py
+# Purpose        : Application entry point for DoDoTask backend,
+#                  responsible for FastAPI initialization, middleware
+#                  configuration, router registration, and startup events.
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 18 August 2025
+# Last Modified  : 15 December 2025
+# ==================================================
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

@@ -1,3 +1,13 @@
+# ==================================================
+# Program Name   : user.py
+# Purpose        : User-related helpers/services (user identity, mapping, and shared user logic)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 22 August 2025
+# Last Modified  : 05 December 2025
+# ==================================================
+
 from beanie import Document, Indexed
 from pydantic import EmailStr, Field
 from datetime import datetime

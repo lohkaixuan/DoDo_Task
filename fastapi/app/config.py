@@ -1,4 +1,14 @@
-# app/config.py
+# ==================================================
+# Program Name   : config.py
+# Purpose        : Centralised application configuration loader using Pydantic,
+#                  including MongoDB connection settings and JWT configuration.
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 18 August 2025
+# Last Modified  : 10 December 2025
+# ==================================================
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):

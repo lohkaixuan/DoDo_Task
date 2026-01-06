@@ -1,3 +1,13 @@
+# ==================================================
+# Program Name   : users.py
+# Purpose        : User profile endpoints (fetch current user, update profile, preferences) and user utilities
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 22 August 2025
+# Last Modified  : 12 December 2025
+# ==================================================
+
 from fastapi import APIRouter, Depends
 from bson import ObjectId
 from app.db import get_db

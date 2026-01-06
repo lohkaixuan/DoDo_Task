@@ -1,4 +1,13 @@
-# app/routers/balance.py
+# ==================================================
+# Program Name   : balance.py
+# Purpose        : Wallet/balance endpoints (coins retrieval, spend/deduct coins, balance checks)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 03 September 2025
+# Last Modified  : 08 December 2025
+# ==================================================
+
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.models.user import User

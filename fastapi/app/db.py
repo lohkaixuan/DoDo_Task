@@ -1,4 +1,14 @@
-# app/db.py
+# ==================================================
+# Program Name   : db.py
+# Purpose        : Initialize and manage MongoDB database connection,
+#                  including Beanie ODM setup and connection health check.
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 20 August 2025
+# Last Modified  : 12 December 2025
+# ==================================================
+
 import os
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient

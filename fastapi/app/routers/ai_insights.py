@@ -1,4 +1,14 @@
-# app/routers/ai_insights.py
+# ==================================================
+# Program Name   : ai_insights.py
+# Purpose        : AI insights generation (task-based productivity insights, summaries, recommendation outputs)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 19 September 2025
+# Last Modified  : 13 December 2025
+# ==================================================
+
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any

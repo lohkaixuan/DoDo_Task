@@ -1,4 +1,13 @@
-# app/logic/risk_mongo.py
+# ==================================================
+# Program Name   : risk_mongo.py
+# Purpose        : Risk scoring and MongoDB-based wellbeing rollup logic (stress score, due date recommendations, focus session rollups)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 11 September 2025
+# Last Modified  : 15 December 2025
+# ==================================================
+
 from datetime import datetime, timedelta, date
 from statistics import median
 from bson.son import SON

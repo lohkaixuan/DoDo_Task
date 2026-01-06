@@ -1,4 +1,13 @@
-# app/routers/shop.py
+# ==================================================
+# Program Name   : shop.py
+# Purpose        : Shop endpoints (inventory, purchase items, use food, equip decor) for gamification rewards
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 05 September 2025
+# Last Modified  : 14 December 2025
+# ==================================================
+
 from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Dict, Any

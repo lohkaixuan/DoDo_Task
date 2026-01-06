@@ -1,4 +1,13 @@
-# app/routers/health_productivity.py
+# ==================================================
+# Program Name   : health_productivity.py
+# Purpose        : Health & productivity analysis endpoints (metrics, summaries, productivity scoring and helper outputs)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 12 September 2025
+# Last Modified  : 09 December 2025
+# ==================================================
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from datetime import datetime

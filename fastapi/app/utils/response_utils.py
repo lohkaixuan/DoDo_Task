@@ -1,4 +1,13 @@
-# app/utils/response.py
+# ==================================================
+# Program Name   : response_utils.py
+# Purpose        : Response helper utilities (ok/created/no_content/fail helpers for consistent API replies)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 18 August 2025
+# Last Modified  : 22 October 2025
+# ==================================================
+
 from fastapi import status as http
 from app.schemas.response import Envelope  # or: from ..schemas.response import Envelope
 

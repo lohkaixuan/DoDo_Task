@@ -1,4 +1,13 @@
-# app/routers/tts.py
+# ==================================================
+# Program Name   : tts.py
+# Purpose        : Text-to-Speech endpoints/services (generate speech, TTS utilities for motivational feedback)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 24 September 2025
+# Last Modified  : 07 December 2025
+# ==================================================
+
 import io
 import edge_tts
 from fastapi import APIRouter, HTTPException , Query

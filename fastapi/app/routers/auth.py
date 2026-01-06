@@ -1,4 +1,14 @@
-# app/routers/auth.py
+# ==================================================
+# Program Name   : auth.py
+# Purpose        : Authentication endpoints (register, login, logout) and token/session handling
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 20 August 2025
+# Last Modified  : 10 December 2025
+# ==================================================
+
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
 from typing import Optional

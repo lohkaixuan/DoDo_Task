@@ -1,3 +1,13 @@
+# ==================================================
+# Program Name   : security.py
+# Purpose        : Security utilities (password hashing/verification and JWT token generation)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 19 August 2025
+# Last Modified  : 01 November 2025
+# ==================================================
+
 from datetime import datetime, timedelta
 from jose import jwt
 from passlib.context import CryptContext

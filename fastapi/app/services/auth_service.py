@@ -1,4 +1,14 @@
-# app/services/auth_service.py
+# ==================================================
+# Program Name   : auth_service.py
+# Purpose        : Provide authentication services including user registration, email/password login, JWT token generation, token rotation,
+#                  and secure user verification for protected endpoints.
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 20 August 2025
+# Last Modified  : 15 December 2025
+# ==================================================
+
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 

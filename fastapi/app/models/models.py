@@ -1,3 +1,13 @@
+# ==================================================
+# Program Name   : models.py
+# Purpose        : Data models / schema definitions (Pydantic models, shared structures for requests/responses)
+# Developer      : Miss. Yap Shuet Khey
+# Student ID     : TP074066
+# Course         : Bachelor of Software Engineering (Hons)
+# Created Date   : 18 August 2025
+# Last Modified  : 30 November 2025
+# ==================================================
+
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
