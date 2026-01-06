@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : bottomnav.dart
+// Purpose        : Provide the Bottom Navigation Bar UI component, enabling navigation between main application modules.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 06 September 2025
+// Last Modified  : 20 November 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/taskController.dart';

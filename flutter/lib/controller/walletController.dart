@@ -1,4 +1,13 @@
-// lib/controller/walletController.dart
+// ==================================================
+// Program Name   : walletController.dart
+// Purpose        : Manage user virtual wallet including coin balance retrieval, updates, and backend synchronization.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 26 August 2025
+// Last Modified  : 04 December 2025
+// ==================================================
+
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 

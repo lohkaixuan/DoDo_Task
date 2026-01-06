@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : tts_service.dart
+// Purpose        : Provide text-to-speech functionality to support voice feedback and motivational messages from the virtual pet.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 29 August 2025
+// Last Modified  : 04 December 2025
+// ==================================================
+
 import 'package:just_audio/just_audio.dart';
 
 class TtsService {

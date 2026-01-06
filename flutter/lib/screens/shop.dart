@@ -1,4 +1,13 @@
-// lib/screens/shop.dart
+// ==================================================
+// Program Name   : shop.dart
+// Purpose        : Provide shop user interface for browsing items, purchasing goods, using consumables, and equipping pet decorations.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 12 September 2025
+// Last Modified  : 15 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/shopController.dart';

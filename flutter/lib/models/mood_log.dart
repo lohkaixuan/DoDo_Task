@@ -1,4 +1,12 @@
-// lib/models/mood_log.dart
+// ==================================================
+// Program Name   : mood_log.dart
+// Purpose        : Define data model for user mood logs, including mood label, timestamp, confidence, and notes.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 02 October 2025
+// Last Modified  : 18 November 2025
+// ==================================================
 
 class MoodLogReq {
   final String moodId;

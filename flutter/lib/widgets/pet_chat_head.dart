@@ -1,4 +1,13 @@
-// lib/widgets/pet_head_floating.dart
+// ==================================================
+// Program Name   : pet_chat_head.dart
+// Purpose        : Display a compact pet chat head widget used to access the pet chat interface quickly.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 15 October 2025
+// Last Modified  : 08 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/petController.dart';

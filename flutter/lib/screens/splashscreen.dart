@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : splashscreen.dart
+// Purpose        : Display splash screen during application startup, handling initial loading and navigation to authentication or home screen.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 18 August 2025
+// Last Modified  : 20 November 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/authController.dart';

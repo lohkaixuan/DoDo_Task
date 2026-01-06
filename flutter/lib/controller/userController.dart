@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : userController.dart
+// Purpose        : Manage authenticated user profile data including display name, email, and session-related user information.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 24 August 2025
+// Last Modified  : 05 December 2025
+// ==================================================
+
 import 'package:get/get.dart';
 import 'package:v3/api/dioclient.dart';
 

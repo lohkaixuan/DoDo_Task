@@ -1,4 +1,12 @@
-// lib/models/shop_item.dart
+// ==================================================
+// Program Name   : shop_item.dart
+// Purpose        : Define shop item model and static catalog configuration, including food and decor item metadata.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 30 August 2025
+// Last Modified  : 25 November 2025
+// ==================================================
 
 enum ShopCategory { food, decor }
 

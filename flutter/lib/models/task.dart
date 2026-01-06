@@ -1,4 +1,13 @@
-// lib/models/task.dart
+// ==================================================
+// Program Name   : task.dart
+// Purpose        : Define task data model including status, priority, scheduling rules, and progress calculation logic.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 19 August 2025
+// Last Modified  : 10 December 2025
+// ==================================================
+
 import 'dart:convert';
 
 enum TaskType { singleDay, ranged } // single dueDateTime vs start+due

@@ -1,4 +1,13 @@
-// lib/apis.dart
+// ==================================================
+// Program Name   : apis.dart
+// Purpose        : Provide API service wrappers to call backend endpoints (e.g., login, register, tasks, wellbeing, shop) using DioClient.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 21 August 2025
+// Last Modified  : 10 December 2025
+// ==================================================
+
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:v3/storage/authStorage.dart';

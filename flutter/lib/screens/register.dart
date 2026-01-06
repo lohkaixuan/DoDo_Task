@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : register.dart
+// Purpose        : Provide user registration interface for creating a new account with input validation and authentication workflow integration.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 18 August 2025
+// Last Modified  : 22 November 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/authController.dart';

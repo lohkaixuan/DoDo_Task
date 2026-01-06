@@ -1,4 +1,13 @@
-// lib/overlay/overlay_bridge.dart
+// ==================================================
+// Program Name   : overlay_bridge.dart
+// Purpose        : Act as a bridge to manage and control overlay widgets, including showing and hiding floating UI elements across different application screens.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 10 September 2025
+// Last Modified  : 01 December 2025
+// ==================================================
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';

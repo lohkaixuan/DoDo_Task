@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : page.dart
+// Purpose        : Define application routes and page navigation mapping used by GetX for screen-level routing control.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 18 August 2025
+// Last Modified  : 28 November 2025
+// ==================================================
+
 import 'package:get/get.dart';
 
 // Shell (bottom nav with center +)

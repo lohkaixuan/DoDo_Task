@@ -1,4 +1,13 @@
-// lib/controller/settingController.dart
+// ==================================================
+// Program Name   : settingController.dart
+// Purpose        : Manage user preference settings such as theme mode, notification preferences, and UI customization options.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 05 September 2025
+// Last Modified  : 30 November 2025
+// ==================================================
+
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 

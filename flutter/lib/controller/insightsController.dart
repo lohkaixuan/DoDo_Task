@@ -1,4 +1,14 @@
-// lib/controller/insightsController.dart
+// ==================================================
+// Program Name   : insightsController.dart
+// Purpose        : Manage AI-based productivity insights retrieval, including loading state, summaries, and refresh actions.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 25 September 2025
+// Last Modified  : 12 December 2025
+// ==================================================
+
+
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';

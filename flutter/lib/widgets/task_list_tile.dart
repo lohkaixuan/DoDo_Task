@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : task_list_tile.dart
+// Purpose        : Provide a reusable list tile widget to display task information including title, status, priority, and quick actions.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 22 August 2025
+// Last Modified  : 12 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';

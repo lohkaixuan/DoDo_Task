@@ -1,4 +1,13 @@
-// lib/widgets/pad.dart
+// ==================================================
+// Program Name   : pad.dart
+// Purpose        : Provide reusable padding utilities to ensure consistent spacing and layout across UI components.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 20 August 2025
+// Last Modified  : 28 November 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 
 /// Extra bottom space so scrollables don't collide with BottomAppBar, FAB and pet head.

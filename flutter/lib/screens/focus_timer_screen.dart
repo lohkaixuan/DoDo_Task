@@ -1,4 +1,13 @@
-// lib/screens/focus_timer_screen.dart
+// ==================================================
+// Program Name   : focus_timer_screen.dart
+// Purpose        : Provide focus timer functionality to support productivity sessions, break intervals, and focus duration tracking.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 30 August 2025
+// Last Modified  : 10 December 2025
+// ==================================================
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

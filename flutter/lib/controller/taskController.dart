@@ -1,4 +1,13 @@
-// lib/controller/taskController.dart
+// ==================================================
+// Program Name   : taskController.dart
+// Purpose        : Manage task lifecycle including creation, update, deletion, status transitions, focus tracking, and productivity events.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 22 August 2025
+// Last Modified  : 14 December 2025
+// ==================================================
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

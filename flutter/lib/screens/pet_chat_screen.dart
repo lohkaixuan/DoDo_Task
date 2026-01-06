@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : pet_chat_screen.dart
+// Purpose        : Provide chat-based user interface for interacting with the virtual pet, including message display and AI-driven responses.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 14 October 2025
+// Last Modified  : 08 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/petChatController.dart';

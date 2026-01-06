@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : wellbeing_service.dart
+// Purpose        : Provide service layer for wellbeing-related features, including mood tracking, pet wellbeing, and health productivity communication with backend.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 02 October 2025
+// Last Modified  : 13 December 2025
+// ==================================================
+
 import 'dart:math';
 import 'package:get/get.dart';
 import 'package:v3/api/dioclient.dart';

@@ -1,4 +1,13 @@
-// lib/binding/app_binding.dart
+// ==================================================
+// Program Name   : app_binding.dart
+// Purpose        : Register and inject core services/controllers using GetX bindings, ensuring global dependencies are initialized consistently.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 01 September 2025
+// Last Modified  : 15 December 2025
+// ==================================================
+
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:v3/api/dioclient.dart';

@@ -1,4 +1,13 @@
-// lib/services/auth_storage.dart
+// ==================================================
+// Program Name   : authStorage.dart
+// Purpose        : Handle secure local storage of authentication data, including JWT tokens, user identifiers, and session persistence.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 18 August 2025
+// Last Modified  : 05 December 2025
+// ==================================================
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthStorage {

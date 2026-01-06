@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : moodController.dart
+// Purpose        : Manage user mood logging and wellbeing history, including submission, validation, and reactive UI updates.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 02 October 2025
+// Last Modified  : 13 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';

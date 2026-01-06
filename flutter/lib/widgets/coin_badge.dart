@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : coin_badge.dart
+// Purpose        : Display a reactive coin balance badge in the app bar, reflecting the user's current virtual wallet state.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 26 August 2025
+// Last Modified  : 05 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/walletController.dart';

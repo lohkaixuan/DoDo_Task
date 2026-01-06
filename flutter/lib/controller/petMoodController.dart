@@ -1,4 +1,13 @@
-// lib/controller/petMoodController.dart
+// ==================================================
+// Program Name   : petMoodController.dart
+// Purpose        : Handle pet mood synchronization with backend wellbeing service,including current pet mood state and mood history logs.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 28 August 2025
+// Last Modified  : 10 December 2025
+// ==================================================
+
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 import 'package:v3/storage/authStorage.dart';

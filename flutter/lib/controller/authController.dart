@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : authController.dart
+// Purpose        : Manage authentication workflow (login, register, logout), token persistence, and user-scoped state reset using GetX.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 10 September 2025
+// Last Modified  : 04 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/api/apis.dart';

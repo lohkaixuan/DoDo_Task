@@ -1,4 +1,13 @@
-// lib/overlay/floating_pet_overlay.dart
+// ==================================================
+// Program Name   : floating_pet_overlay.dart
+// Purpose        : Provide a draggable floating pet overlay component that stays on top of the UI for quick interaction and navigation to pet-related features.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 08 September 2025
+// Last Modified  : 03 December 2025
+// ==================================================
+
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';

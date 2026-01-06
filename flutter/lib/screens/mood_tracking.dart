@@ -1,4 +1,13 @@
-// lib/screens/mood_tracking.dart
+// ==================================================
+// Program Name   : mood_tracking.dart
+// Purpose        : Provide user interface for logging emotional state, tracking mood history, and supporting wellbeing analysis.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 02 October 2025
+// Last Modified  : 13 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controller/moodController.dart';

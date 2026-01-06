@@ -1,4 +1,13 @@
-// lib/main.dart
+// ==================================================
+// Program Name   : main.dart
+// Purpose        : Serve as the application entry point, initializing core services, dependency injection, notification setup, and root navigation.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 18 August 2025
+// Last Modified  : 15 December 2025
+// ==================================================
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

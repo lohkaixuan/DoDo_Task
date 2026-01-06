@@ -1,4 +1,13 @@
-// lib/controller/petController.dart
+// ==================================================
+// Program Name   : petController.dart
+// Purpose        : Manage virtual pet core logic including mood, emotion score, events, fatigue, experience, level progression, and pet sprites.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 20 August 2025
+// Last Modified  : 12 December 2025
+// ==================================================
+
 import 'dart:async';
 import 'package:get/get.dart';
 

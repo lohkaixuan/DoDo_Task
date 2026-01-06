@@ -1,4 +1,13 @@
-// lib/controller/shopController.dart
+// ==================================================
+// Program Name   : shopController.dart
+// Purpose        : Manage in-app shop operations including inventory loading, item purchase, food usage, decor equipping, and pet sync.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 12 September 2025
+// Last Modified  : 15 December 2025
+// ==================================================
+
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 import '../api/dioclient.dart';

@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : task_today.dart
+// Purpose        : Display tasks scheduled for the current day, supporting quick access and daily productivity tracking.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 23 August 2025
+// Last Modified  : 02 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';

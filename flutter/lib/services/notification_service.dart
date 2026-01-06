@@ -1,4 +1,13 @@
-// lib/services/notification_service.dart
+// ==================================================
+// Program Name   : notification_service.dart
+// Purpose        : Handle local notification scheduling, cancellation, and reminder management for tasks and focus sessions.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 21 August 2025
+// Last Modified  : 15 December 2025
+// ==================================================
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';

@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : dashboard.dart
+// Purpose        : Serve as the main dashboard screen that summarizes task statistics, virtual pet status, AI insights, and user wellbeing information.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 26 August 2025
+// Last Modified  : 15 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:v3/controller/insightsController.dart';

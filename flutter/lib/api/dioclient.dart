@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : dioclient.dart
+// Purpose        : Configure and manage Dio HTTP client settings, including base URL, timeout, interceptors, and headers.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 25 August 2025
+// Last Modified  : 12 December 2025
+// ==================================================
+
 import 'package:dio/dio.dart';
 import 'package:v3/storage/authStorage.dart';
 

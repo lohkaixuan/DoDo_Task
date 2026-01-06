@@ -1,3 +1,12 @@
+// ==================================================
+// Program Name   : apimodel.dart
+// Purpose        : Define frontend data models (DTOs) for API communication, including request/response mapping and JSON serialization.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 18 August 2025
+// Last Modified  : 02 December 2025
+// ==================================================
 
 class ApiResponse {
   final String status;

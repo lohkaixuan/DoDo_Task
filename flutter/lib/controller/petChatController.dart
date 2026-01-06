@@ -1,3 +1,13 @@
+// ==================================================
+// Program Name   : petChatController.dart
+// Purpose        : Manage chat-based interaction with the virtual pet, including message flow, AI responses, and UI state handling.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 12 October 2025
+// Last Modified  : 08 December 2025
+// ==================================================
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

@@ -1,3 +1,14 @@
+// ==================================================
+// Program Name   : setting.dart
+// Purpose        : Provide the settings screen user interface, allowing users to configure preferences such as theme, notifications, and overlay behaviour.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 05 September 2025
+// Last Modified  : 30 November 2025
+// ==================================================
+
+
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 Future<void> startFloatingPet() async {

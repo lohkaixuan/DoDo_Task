@@ -1,4 +1,13 @@
-// lib/widgets/pet_header.dart
+// ==================================================
+// Program Name   : pet_header.dart
+// Purpose        : Render the main pet header UI component showing pet sprite, mood, emotion level, and interactive animations on the dashboard.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 24 August 2025
+// Last Modified  : 15 December 2025
+// ==================================================
+
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';

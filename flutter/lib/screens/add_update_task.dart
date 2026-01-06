@@ -1,4 +1,13 @@
-// lib/screens/add_update_task.dart
+// ==================================================
+// Program Name   : add_update_task.dart
+// Purpose        : Provide UI screen for creating and updating tasks, including task details, priority, schedule, and notification settings.
+// Developer      : Miss. Yap Shuet Khey
+// Student ID     : TP074066
+// Course         : Bachelor of Software Engineering (Hons)
+// Created Date   : 22 August 2025
+// Last Modified  : 12 December 2025
+// ==================================================
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
