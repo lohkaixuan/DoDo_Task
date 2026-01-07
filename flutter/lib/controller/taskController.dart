@@ -7,7 +7,6 @@
 // Created Date   : 22 August 2025
 // Last Modified  : 14 December 2025
 // ==================================================
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -438,10 +437,16 @@ class TaskController extends GetxController {
   // Notifications Scheduling (keep your logic)
   // =========================================================
   Future<void> _scheduleAllNotifications(Task t) async {
-    if (!await _isLoggedIn()) return;
-
+    // ✅ ALWAYS cancel old schedules first (even when logged out)
     await notifier.cancelForTask(_cleanId(t.id));
 
+    // ✅ guard: only schedule when logged in
+    if (!await _isLoggedIn()) {
+      debugPrint("⛔ schedule blocked: not logged in (task=${t.id})");
+      return;
+    }
+
+    // skip if completed/archived
     if (t.status == TaskStatus.completed || t.status == TaskStatus.archived) {
       return;
     }
@@ -457,10 +462,230 @@ class TaskController extends GetxController {
 
     final bool allowNormalNoti = t.focusPrefs.notificationsEnabled;
 
+    // if not due today AND user disabled notifications -> no schedule
     if (!dueToday && !allowNormalNoti) return;
 
     final payload = _payloadForTask(t);
 
+    // -------------------------
+    // A) singleDay + dueDateTime
+    // -------------------------
+    if (t.type == TaskType.singleDay && t.dueDateTime != null) {
+      final due = t.dueDateTime!;
+      final isDueToday = _isSameDay(due, now);
+
+      // "Start" = 9:00 on due day (simple and consistent)
+      final startAt = DateTime(due.year, due.month, due.day, 9, 0);
+
+      // 1) Remind BEFORE start (e.g., 1 day before 9:00)
+      if (allowNormalNoti && t.notify.remindBeforeStart) {
+        final when = startAt.subtract(t.notify.remindBeforeStartOffset);
+        if (when.isAfter(now)) {
+          await notifier.scheduleOneShot(
+            taskId: _cleanId(t.id),
+            key: 'beforeStart',
+            when: when,
+            title: 'Task Reminder',
+            body: "Upcoming: ‘${t.title}’. Tap to plan and focus.",
+            payload: payload,
+          );
+        }
+      }
+
+      // 2) Remind ON start (9:00)
+      if (allowNormalNoti && t.notify.remindOnStart) {
+        if (isDueToday) {
+          await notifier.scheduleDueToday0900OrCatchUp(
+            taskId: _cleanId(t.id),
+            today: now,
+            title: 'Task Reminder',
+            body: "Start today: ‘${t.title}’. Tap to begin focus!",
+            payload: payload,
+          );
+        } else {
+          await notifier.scheduleOneShot(
+            taskId: _cleanId(t.id),
+            key: 'onStart',
+            when: startAt,
+            title: 'Task Reminder',
+            body: "Start today: ‘${t.title}’. Tap to begin focus!",
+            payload: payload,
+          );
+        }
+      }
+
+      // 3) Remind BEFORE due time
+      if (allowNormalNoti && t.notify.remindBeforeDue) {
+        final when = due.subtract(t.notify.remindBeforeDueOffset);
+        final safe = when.isAfter(now) ? when : now.add(const Duration(minutes: 1));
+        if (safe.isBefore(due)) {
+          await notifier.scheduleOneShot(
+            taskId: _cleanId(t.id),
+            key: 'beforeDue',
+            when: safe,
+            title: 'Task Reminder',
+            body: "Due soon: ‘${t.title}’. Small push now ✨",
+            payload: payload,
+          );
+        }
+      }
+
+      // 4) Remind ON due time
+      if (t.notify.remindOnDue) {
+        final dueSafe = due.isAfter(now) ? due : now.add(const Duration(minutes: 1));
+        await notifier.scheduleOneShot(
+          taskId: _cleanId(t.id),
+          key: 'onDue',
+          when: dueSafe,
+          title: 'Task Reminder',
+          body: "Due now: ‘${t.title}’. Final push! Tap to focus.",
+          payload: payload,
+        );
+      }
+
+      // 5) Repeats (due-today only)
+      final canRepeat = isDueToday &&
+          allowNormalNoti &&
+          _repeatAllowed(t) &&
+          now.isBefore(due) &&
+          t.notify.repeatWhenToday != RepeatGranularity.none;
+
+      if (canRepeat) {
+        // base hours from priority + user repeat interval
+        int everyHours = _repeatHours(t);
+        final ri = t.notify.repeatInterval <= 0 ? 1 : t.notify.repeatInterval;
+        everyHours = (everyHours * ri).clamp(1, 24);
+
+        // notifier needs a "startHour" (0-23)
+        final safeStart = now.isAfter(startAt)
+            ? now.add(const Duration(minutes: 1))
+            : startAt;
+
+        if (safeStart.isBefore(due)) {
+          await notifier.scheduleEveryNHoursToday(
+            taskId: _cleanId(t.id),
+            everyHours: everyHours,
+            endAt: due,
+            title: 'Task Reminder',
+            body: "Due today: ‘${t.title}’. Tap to focus!",
+            payload: payload,
+            startHour: safeStart.hour,
+          );
+        }
+      }
+
+      return;
+    }
+
+    // -------------------------
+    // B) ranged + dueDate (all-day)
+    // -------------------------
+    if (t.type == TaskType.ranged && t.dueDate != null) {
+      final d = t.dueDate!;
+      final due0900 = DateTime(d.year, d.month, d.day, 9, 0);
+      final dueEnd = DateTime(d.year, d.month, d.day, 23, 59);
+
+      if (!dueEnd.isAfter(now)) return;
+
+      final isDueToday = _isSameDay(d, now);
+
+      // 1) Due day morning reminder
+      if (allowNormalNoti && t.notify.remindOnStart) {
+        if (isDueToday) {
+          await notifier.scheduleDueToday0900OrCatchUp(
+            taskId: _cleanId(t.id),
+            today: now,
+            title: 'Task Reminder',
+            body: "Due today: ‘${t.title}’. Tap to start focus!",
+            payload: payload,
+          );
+        } else {
+          await notifier.scheduleOneShot(
+            taskId: _cleanId(t.id),
+            key: 'dueDay0900',
+            when: due0900,
+            title: 'Task Reminder',
+            body: "Due today: ‘${t.title}’. Tap to start focus!",
+            payload: payload,
+          );
+        }
+      }
+
+      // 2) Before due end (offset)
+      if (allowNormalNoti && t.notify.remindBeforeDue) {
+        final when = dueEnd.subtract(t.notify.remindBeforeDueOffset);
+        final safe = when.isAfter(now) ? when : now.add(const Duration(minutes: 1));
+        if (safe.isBefore(dueEnd)) {
+          await notifier.scheduleOneShot(
+            taskId: _cleanId(t.id),
+            key: 'beforeDue',
+            when: safe,
+            title: 'Task Reminder',
+            body: "Due soon: ‘${t.title}’. Tap to focus!",
+            payload: payload,
+          );
+        }
+      }
+
+      // 3) On due end
+      if (t.notify.remindOnDue) {
+        final safe = dueEnd.isAfter(now) ? dueEnd : now.add(const Duration(minutes: 1));
+        await notifier.scheduleOneShot(
+          taskId: _cleanId(t.id),
+          key: 'onDue',
+          when: safe,
+          title: 'Task Reminder',
+          body: "Due today: ‘${t.title}’. Final push!",
+          payload: payload,
+        );
+      }
+
+      // 4) Repeat reminders on due day (optional)
+      final canRepeat = isDueToday &&
+          allowNormalNoti &&
+          _repeatAllowed(t) &&
+          t.notify.repeatWhenToday != RepeatGranularity.none;
+
+      if (canRepeat) {
+        int everyHours = _repeatHours(t);
+        final ri = t.notify.repeatInterval <= 0 ? 1 : t.notify.repeatInterval;
+        everyHours = (everyHours * ri).clamp(1, 24);
+
+        final safeStart = now.isAfter(due0900)
+            ? now.add(const Duration(minutes: 1))
+            : due0900;
+
+        if (safeStart.isBefore(dueEnd)) {
+          await notifier.scheduleEveryNHoursToday(
+            taskId: _cleanId(t.id),
+            everyHours: everyHours,
+            endAt: dueEnd,
+            title: 'Task Reminder',
+            body: "Due today: ‘${t.title}’. Tap to focus!",
+            payload: payload,
+            startHour: safeStart.hour,
+          );
+        }
+      }
+
+      // 5) Daily reminder until due date (if enabled)
+      if (allowNormalNoti) {
+        final hour = t.notify.dailyHour ?? 9;
+        final minute = t.notify.dailyMinute ?? 0;
+        await notifier.scheduleDailyUntilDue(
+          taskId: _cleanId(t.id),
+          hour: hour,
+          minute: minute,
+          title: 'Task Reminder',
+          body: "Reminder: work on ‘${t.title}’ today. Tap to focus.",
+          payload: payload,
+        );
+      }
+
+      return;
+    }
+
+    // C) fallback -> do nothing
   }
 
   // =========================================================
