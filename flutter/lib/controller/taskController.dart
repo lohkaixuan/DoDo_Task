@@ -461,9 +461,6 @@ class TaskController extends GetxController {
 
     final payload = _payloadForTask(t);
 
-    // --- keep your existing scheduling branches (A/B) ---
-    // (省略：你原本那段 schedule code 可以 그대로贴回这里)
-    // 建议：你直接把你原本 schedule A/B 段落复制回来，保持不动。
   }
 
   // =========================================================
