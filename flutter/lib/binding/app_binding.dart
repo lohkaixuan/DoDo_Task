@@ -12,7 +12,6 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:v3/api/dioclient.dart';
 import 'package:v3/controller/authController.dart';
-import 'package:v3/controller/graphController.dart';
 import 'package:v3/controller/insightsController.dart';
 import 'package:v3/controller/moodController.dart'; 
 import 'package:v3/controller/petController.dart';
@@ -42,7 +41,6 @@ class AppBinding extends Bindings {
     Get.put<AuthController>(AuthController(), permanent: true);    
 
     // Other controllers
-    Get.lazyPut<GraphController>(() => GraphController(), fenix: true);
     Get.lazyPut<MoodController>(() => MoodController(), fenix: true);
 
     Get.lazyPut<TaskController>(

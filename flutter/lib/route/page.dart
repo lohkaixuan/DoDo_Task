@@ -15,7 +15,6 @@ import 'package:v3/bottomnav/bottomnav.dart';
 
 // Core screens
 import 'package:v3/screens/focus_timer_screen.dart';
-import 'package:v3/screens/graph.dart';
 import 'package:v3/screens/login.dart';
 import 'package:v3/screens/mood_tracking.dart';
 import 'package:v3/screens/pet_chat_screen.dart';

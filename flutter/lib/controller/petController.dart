@@ -98,7 +98,7 @@ class PetController extends GetxController {
     mood.value = PetMood.idle;
 
     // keep pet sprite as default or keep current — your choice:
-    currentPetSprite.value = 'assets/pet/dodo_idle.png';
+    currentPetSprite.value = 'assets/idle.png';
 
     // remove decor
     equippedDecor.value = '';
